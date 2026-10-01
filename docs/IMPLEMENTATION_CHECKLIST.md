@@ -30,6 +30,7 @@ clean; affected UI inspected; docs updated.
 - [x] Permission-aware navigation, dashboard cards and shortcuts
 - [x] Error mapping (`server/errors.ts`) with tests
 - [x] DB tests: 84 checks (`scripts/db-test.sh`); mutation-checked
+- [x] Foreign-key index guard and exhaustive RLS matrix test (Phase 1 re-verification)
 - [ ] Apply migrations to a Supabase project (blocked: no project chosen)
 - [ ] Exercise real sign-in, cookie refresh and the session queries against Supabase
 - [ ] Run `scripts/db-test.sh` in CI
