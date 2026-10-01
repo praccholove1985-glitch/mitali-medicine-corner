@@ -30,6 +30,7 @@ import { canSee } from "@/config/navigation";
 import { ExpiryBadge, StatusBadge } from "@/components/common/status-badge";
 import { MoneyText } from "@/components/common/money-text";
 import { getInventorySummary, listExpiry, type ExpiryItem, type InventorySummary } from "@/server/db/inventory";
+import { getDueSummary, type DueSummary } from "@/server/db/customers";
 import { ErrorState } from "@/components/common/error-state";
 import { formatDate } from "@/lib/dates";
 import { getSessionContext } from "@/server/session";
@@ -46,11 +47,11 @@ export const metadata: Metadata = { title: "Dashboard" };
  * Cost and profit cards are not even drawn for roles that may not see them.
  */
 const kpis = [
-  { label: "Today's sales", icon: Banknote, tone: "primary", note: "Available after Phase 5", anyOf: ["sale.create", "report.view", "report.view_own"] },
-  { label: "Today's profit", icon: TrendingUp, tone: "success", note: "Available after Phase 5", anyOf: ["finance.view_profit"] },
+  { label: "Today's sales", icon: Banknote, tone: "primary", note: "Available with reports (Phase 10)", anyOf: ["sale.create", "report.view", "report.view_own"] },
+  { label: "Today's profit", icon: TrendingUp, tone: "success", note: "Available with reports (Phase 10)", anyOf: ["finance.view_profit"] },
   { label: "Today's purchases", icon: Truck, tone: "primary", note: "Available after Phase 7", anyOf: ["purchase.view"] },
   { label: "Stock value", icon: Boxes, tone: "neutral", note: "", anyOf: ["purchase.view_cost"] },
-  { label: "Customer due", icon: Users, tone: "warning", note: "Available after Phase 6", anyOf: ["customer.view"] },
+  { label: "Customer due", icon: Users, tone: "warning", note: "", anyOf: ["customer.view"] },
   { label: "Supplier due", icon: Building2, tone: "warning", note: "Available after Phase 7", anyOf: ["supplier.view"] },
   { label: "Low stock", icon: PackageSearch, tone: "warning", note: "", anyOf: ["stock.view"] },
   { label: "Expiring soon", icon: CalendarClock, tone: "danger", note: "", anyOf: ["stock.view"] },
@@ -60,7 +61,7 @@ const quickActions = [
   { href: "/pos", label: "New sale", icon: ReceiptText, phase: null, anyOf: ["sale.create"] },
   { href: "/medicines/new", label: "Add medicine", icon: Pill, phase: null, anyOf: ["medicine.edit"] },
   { href: "/purchases", label: "Receive stock", icon: Truck, phase: 7, anyOf: ["purchase.create"] },
-  { href: "/customers", label: "Record payment", icon: Wallet, phase: 6, anyOf: ["customer.payment"] },
+  { href: "/customers", label: "Record payment", icon: Wallet, phase: null, anyOf: ["customer.payment"] },
 ] as const;
 
 export default async function DashboardPage() {
@@ -79,6 +80,16 @@ export default async function DashboardPage() {
     }
   }
 
+  let due: DueSummary | null = null;
+  let dueFailed = false;
+  if (session.status === "ready" && permissions.includes("customer.view")) {
+    try {
+      due = await getDueSummary(session.branch.id);
+    } catch {
+      dueFailed = true;
+    }
+  }
+
   let expiring: { items: ExpiryItem[]; total: number } | null = null;
   let expiringFailed = false;
   if (session.status === "ready" && permissions.includes("stock.view")) {
@@ -90,6 +101,14 @@ export default async function DashboardPage() {
   }
 
   const live = (label: string): { value: React.ReactNode | null; caption?: string } => {
+    if (label === "Customer due") {
+      return due === null
+        ? { value: null }
+        : {
+            value: <MoneyText amount={due.totalDue} fractionDigits={2} />,
+            caption: `${due.customersWithDue} customer${due.customersWithDue === 1 ? "" : "s"} owe`,
+          };
+    }
     if (!inventory) return { value: null };
     switch (label) {
       case "Low stock":
@@ -114,8 +133,8 @@ export default async function DashboardPage() {
       />
 
       <Alert tone="info" title="Figures arrive with each module" className="mb-6">
-        Stock figures are live. Sales, purchases and dues are not recorded yet,
-        so those cards show the phase that will fill them.
+        Stock and customer-due figures are live. Sales totals, profit and purchases
+        are not summarised here yet, so those cards show the phase that will fill them.
       </Alert>
 
       <section aria-labelledby="kpi-heading">
@@ -126,6 +145,7 @@ export default async function DashboardPage() {
           {visibleKpis.map((kpi) => {
             const { value, caption } = live(kpi.label);
             const stockCard = ["Low stock", "Expiring soon", "Stock value"].includes(kpi.label);
+            const dueCard = kpi.label === "Customer due";
             return (
               <StatCard
                 key={kpi.label}
@@ -134,7 +154,13 @@ export default async function DashboardPage() {
                 tone={kpi.tone}
                 value={value}
                 caption={caption}
-                pendingNote={stockCard ? (inventoryFailed ? "Couldn't load, try refreshing" : undefined) : kpi.note}
+                pendingNote={
+                  stockCard
+                    ? inventoryFailed ? "Couldn't load, try refreshing" : undefined
+                    : dueCard
+                      ? dueFailed ? "Couldn't load, try refreshing" : undefined
+                      : kpi.note
+                }
               />
             );
           })}
@@ -154,8 +180,8 @@ export default async function DashboardPage() {
             <div className="rounded-lg border border-dashed">
               <EmptyState
                 icon={LineChart}
-                title="No sales to chart yet"
-                description="Once sales are recorded (Phase 5) the daily trend appears here, drawn from the database."
+                title="No chart yet"
+                description="The daily trend is drawn from the database with the reports (Phase 10)."
               />
             </div>
           </CardContent>
@@ -261,8 +287,8 @@ export default async function DashboardPage() {
             <div className="rounded-lg border border-dashed">
               <EmptyState
                 icon={ReceiptText}
-                title="No sales recorded"
-                description="Invoices will list here after the first sale is completed in the POS (Phase 5)."
+                title="Not shown here yet"
+                description="Open Sales history in the POS to see invoices. This panel is filled in with the reports (Phase 10)."
               />
             </div>
           </CardContent>

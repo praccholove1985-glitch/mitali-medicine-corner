@@ -5,6 +5,8 @@
 #   2. invoice numbers of the successful sales are 1..5 with no gaps or duplicates
 #   3. four connections submit the SAME client_request_id at once: exactly one sale
 #   4. a sale waiting on a locked batch re-reads the stock after the first commits
+#   5. six cashiers each try to take 40 against a 100 due: exactly 2 are accepted, the due
+#      ends at 20 and never goes negative
 #
 #   scripts/db-concurrency-test.sh      (same DATABASE_ADMIN_URL convention as db-test.sh)
 set -uo pipefail
@@ -126,6 +128,40 @@ grep -q 'not enough sellable stock' "$TMP/we2.txt" || fail "the waiting sale sho
 qty=$(db_psql_loose -c "select quantity from public.medicine_batches where id = '$BATCH'")
 [[ "$qty" == "0" ]] || fail "stock should be 0, got $qty"
 ok "a sale blocked behind a lock re-checked stock after the first committed and was refused"
+
+# ---- 5: concurrent payments cannot overpay a due -------------------------------------------------
+CUST=c1000000-0000-0000-0000-000000000001
+db_psql <<SQL
+begin;
+insert into public.customers (id, branch_id, name) values ('$CUST', '$BR', 'Payer');
+insert into public.customer_ledger_entries (branch_id, customer_id, entry_type, amount)
+  values ('$BR', '$CUST', 'SALE_DUE', 100);
+commit;
+SQL
+pay_sql() {
+  cat <<SQL
+begin;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"$CASHIER","role":"authenticated"}', true);
+select 'OK:' || (public.receive_customer_payment(jsonb_build_object(
+  'branch_id', '$BR', 'customer_id', '$CUST', 'client_request_id', '$1',
+  'method', 'CASH', 'amount', '40')) ->> 'balance_after');
+select pg_sleep(0.3);
+commit;
+SQL
+}
+for i in 1 2 3 4 5 6; do
+  pay_sql "bbbbbbbb-2222-0000-0000-00000000000$i" > "$TMP/p$i.sql"
+  ( db_psql_loose < "$TMP/p$i.sql" > "$TMP/po$i.txt" 2> "$TMP/pe$i.txt" ) &
+done
+wait
+accepted=$(cat "$TMP"/po?.txt | grep -c '^OK:' || true)
+refused=$(cat "$TMP"/pe?.txt | grep -c 'payment exceeds what is due' || true)
+[[ "$accepted" == "2" ]] || fail "expected 2 accepted payments, got $accepted"
+[[ "$refused" == "4" ]] || fail "expected 4 refused payments, got $refused"
+due=$(db_psql_loose -c "select sum(amount) from public.customer_ledger_entries where customer_id = '$CUST'")
+[[ "$due" == "20.00" ]] || fail "the due should end at 20.00, got $due"
+ok "six simultaneous 40 payments against a 100 due: 2 accepted, 4 refused, due ended at 20.00"
 
 # Everything still reconciles.
 db_psql_loose <<SQL > "$TMP/recon.txt"

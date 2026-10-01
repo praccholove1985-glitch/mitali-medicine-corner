@@ -83,6 +83,7 @@ const SQLSTATE_MAP: Record<string, { code: AppErrorCode; message?: string }> = {
   PH055: { code: "INVALID", message: "Credit needs a registered customer. Choose a customer or take the payment now." },
   PH056: { code: "CONFLICT", message: "That would take the customer over their credit limit." },
   PH057: { code: "INVALID", message: "The cart is empty." },
+  PH058: { code: "INVALID", message: "That is more than the customer owes. Check the amount." },
   PH040: {
     code: "CONFLICT",
     message: "That change would leave the stock count inconsistent, so nothing was saved.",

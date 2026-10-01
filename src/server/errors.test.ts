@@ -83,6 +83,10 @@ describe("mapError", () => {
   it("explains stock rules in plain words", () => {
     expect(mapError({ code: "PH041", message: "cannot remove 5 from a batch holding 2" }, "t").message).not.toMatch(/\b5\b|\b2\b/);
     expect(mapError({ code: "PH041" }, "t").code).toBe("CONFLICT");
+    expect(mapError({ code: "PH058", message: "payment exceeds what is due", hint: '{"due":"12.00"}' }, "t")).toMatchObject({
+      code: "INVALID",
+      message: expect.not.stringContaining("12.00"),
+    });
     expect(mapError({ code: "PH042" }, "t").code).toBe("INVALID");
     expect(mapError({ code: "PH043" }, "t").message).toMatch(/no expired stock/i);
   });

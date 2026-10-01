@@ -15,7 +15,7 @@ tests work together.
 | 3 | Medicine master + batches | **Done in code and local tests**; not applied to Supabase, screens not exercised against live data |
 | 4 | Inventory | **Done in code and local tests**; not applied to Supabase, screens not exercised against live data; stocktake mode deferred |
 | 5 | Quick Sale / POS | **Done in code and local tests** (DB tests, concurrency test, unit tests); not applied to Supabase; terminal UI not yet inspected in a browser |
-| 6 | Customers + ledger | Not started |
+| 6 | Customers + ledger | **Done in code and local tests**; not applied to Supabase, pages not exercised against live data (dialogs and statement table checked in a browser at 1280 and 390 px) |
 | 7 | Purchases + suppliers | Not started |
 | 8 | Returns | Not started |
 | 9 | Finance, expenses, profit | Not started |

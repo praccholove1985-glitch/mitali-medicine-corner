@@ -92,7 +92,19 @@ clean; affected UI inspected; docs updated.
 - [ ] Camera barcode scanning — Phase 12; offline sale outbox — Phase 15
 
 ## Phase 6 — Customers and ledger
-- [ ] Customers, phone search, ledger (append-only), payments, statement, due
+- [x] Customer list with balance, search by name or phone, filters (owe, over limit, inactive), paging
+- [x] Customer page: balance or advance, credit limit and what is left, lifetime sales, last payment
+- [x] Add, edit, deactivate and reactivate; the balance is never an input
+- [x] Receive a payment (cash, bKash, Nagad, Rocket, card, bank) with reference and note; idempotent; cannot exceed what is due
+- [x] Append-only ledger: payment = `payments` row + linked PAYMENT entry, audited with balance before and after
+- [x] Statement for any date range in branch time: opening, each entry with running balance, closing; print
+- [x] Due summary on the customers page and the dashboard
+- [x] Tests: 012_customers.sql (permissions, branch isolation, figures, boundaries, payment rules, immutability, audit), mutation-checked; concurrent payments test; zod tests
+- [ ] Verify the pages against a live Supabase project
+- [ ] SMS due reminders — Phase 13
+- [ ] Advance deposits and refunds (a payment above what is due is refused in v1) — needs an owner decision
+- [ ] Customer aging buckets (needs a rule for which sale a payment clears) — Phase 10 reports
+- [ ] Collections by payment method per day — Phase 9
 
 ## Phase 7 — Purchases and suppliers
 - [ ] Suppliers, `create_purchase`, batch top-up, free qty cost
