@@ -97,5 +97,55 @@ begin
   end loop;
 end $$;
 
+-- The till: search, quote and a 20-line sale, as a cashier.
+select t.owner();
+select t.login('a4000000-0000-0000-0000-000000000001');
+
+do $$
+declare
+  v_t timestamptz;
+  v_ms numeric;
+  v_items jsonb;
+  v_quote jsonb;
+  v_invoice jsonb;
+  v_budget constant numeric := 400;
+  r record;
+begin
+  select jsonb_agg(jsonb_build_object('medicine_id', m.id, 'quantity', 2)) into v_items
+    from (select id from public.medicines order by id limit 20) m;
+
+  for r in
+    select * from (values
+      ('pos_search: 2 letters',   'select count(*) from public.pos_search(''aaaaaaaa-0000-0000-0000-000000000001'', ''na'', 20)'),
+      ('pos_search: barcode',     'select count(*) from public.pos_search(''aaaaaaaa-0000-0000-0000-000000000001'', ''8900000004242'', 20)'),
+      ('pos_search: word',        'select count(*) from public.pos_search(''aaaaaaaa-0000-0000-0000-000000000001'', ''omeprazole'', 20)')
+    ) q(label, stmt)
+  loop
+    v_t := clock_timestamp();
+    execute r.stmt;
+    v_ms := round(extract(epoch from clock_timestamp() - v_t) * 1000, 1);
+    raise notice 'perf: % -> % ms', rpad(r.label, 26), v_ms;
+    if v_ms > v_budget then raise exception 'FAIL: % took % ms (budget % ms)', r.label, v_ms, v_budget; end if;
+  end loop;
+
+  v_t := clock_timestamp();
+  v_quote := public.quote_sale('aaaaaaaa-0000-0000-0000-000000000001', v_items);
+  v_ms := round(extract(epoch from clock_timestamp() - v_t) * 1000, 1);
+  raise notice 'perf: % -> % ms', rpad('quote_sale: 20 lines', 26), v_ms;
+  if v_ms > v_budget then raise exception 'FAIL: quote took % ms', v_ms; end if;
+
+  v_t := clock_timestamp();
+  v_invoice := public.complete_sale(jsonb_build_object(
+    'branch_id', 'aaaaaaaa-0000-0000-0000-000000000001', 'client_request_id', gen_random_uuid(),
+    'items', v_items,
+    'payments', jsonb_build_array(jsonb_build_object('method', 'CASH', 'amount', v_quote -> 'totals' ->> 'grand_total'))));
+  v_ms := round(extract(epoch from clock_timestamp() - v_t) * 1000, 1);
+  raise notice 'perf: % -> % ms', rpad('complete_sale: 20 lines', 26), v_ms;
+  if v_ms > v_budget then raise exception 'FAIL: complete_sale took % ms', v_ms; end if;
+  if (v_invoice -> 'totals' ->> 'grand_total') <> (v_quote -> 'totals' ->> 'grand_total') then
+    raise exception 'FAIL: invoice total differs from the quote';
+  end if;
+end $$;
+
 select t.owner();
 rollback;

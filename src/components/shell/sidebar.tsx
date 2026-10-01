@@ -10,7 +10,7 @@ type SidebarProps = {
 /** Fixed rail on tablet (icons), full sidebar on desktop. Hidden on phones. */
 export function Sidebar({ permissions, branchName }: SidebarProps) {
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-16 flex-col border-r border-sidebar-border bg-sidebar md:flex lg:w-64">
+    <aside className="fixed inset-y-0 left-0 z-30 hidden print:hidden w-16 flex-col border-r border-sidebar-border bg-sidebar md:flex lg:w-64">
       <Link
         href="/"
         aria-label="Mitali Medicine Corner, dashboard"

@@ -46,6 +46,18 @@ flag is out of v1.
 **Price [RULE]**: unit price defaults to batch sale price, else medicine default;
 selling above MRP is blocked; below cost needs permission.
 
+### 2a. As built (Phase 5)
+- Prices come only from the batch the server allocates; the browser never sends a price.
+  The cart shows a server quote (`quote_sale`) and the sale uses the same function.
+- Line gross is rounded once (half-up, 2 dp); discount comes off the gross; **[RULE]**
+  prices include VAT, so tax = net × rate ÷ (100 + rate).
+- **[RULE]** Discount limit is the branch `max_discount_percent` (default 5) unless the
+  user has `sale.discount`; selling below batch cost also needs `sale.discount`.
+- **[RULE]** Prescription medicines need `sale.dispense_rx` (admin, manager, pharmacist).
+- Payments (cash, bKash, Nagad, Rocket, card, bank, credit) must add up to the total
+  exactly; credit needs a registered customer and creates a `SALE_DUE` ledger entry.
+- A retried submit with the same request id returns the original invoice.
+
 ## 3. Customer due and payment
 Credit portion creates a `SALE_DUE` ledger entry. Later payments create `PAYMENT`
 entries (allocation to oldest due first is informational; balance is the sum).

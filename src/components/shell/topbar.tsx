@@ -17,7 +17,7 @@ export function Topbar({ permissions, user }: TopbarProps) {
   const canSell = permissions.includes("sale.create");
   const canSearch = permissions.includes("medicine.view");
   return (
-    <div className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b bg-card/95 px-3 backdrop-blur sm:gap-3 sm:px-6">
+    <div className="sticky top-0 z-20 flex h-16 print:hidden items-center gap-2 border-b bg-card/95 px-3 backdrop-blur sm:gap-3 sm:px-6">
       <MobileNav permissions={permissions} />
 
       {/* Opens the medicine search with the typed text; disabled without medicine.view. */}

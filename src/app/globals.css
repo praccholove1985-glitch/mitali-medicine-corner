@@ -208,3 +208,13 @@
     scroll-behavior: auto !important;
   }
 }
+
+@media print {
+  @page {
+    margin: 8mm;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+}

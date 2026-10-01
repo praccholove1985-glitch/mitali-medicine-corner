@@ -57,7 +57,7 @@ const kpis = [
 ] as const;
 
 const quickActions = [
-  { href: "/pos", label: "New sale", icon: ReceiptText, phase: 5, anyOf: ["sale.create"] },
+  { href: "/pos", label: "New sale", icon: ReceiptText, phase: null, anyOf: ["sale.create"] },
   { href: "/medicines/new", label: "Add medicine", icon: Pill, phase: null, anyOf: ["medicine.edit"] },
   { href: "/purchases", label: "Receive stock", icon: Truck, phase: 7, anyOf: ["purchase.create"] },
   { href: "/customers", label: "Record payment", icon: Wallet, phase: 6, anyOf: ["customer.payment"] },

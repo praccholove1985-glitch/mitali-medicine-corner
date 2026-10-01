@@ -78,12 +78,18 @@ clean; affected UI inspected; docs updated.
 - [ ] Low-stock reorder suggestions per supplier (needs Phase 7 suppliers)
 
 ## Phase 5 — POS / Quick Sale
-- [ ] `complete_sale` RPC (atomic, idempotent)
-- [ ] FEFO incl. multi-batch split; expired-today rejected
-- [ ] Mixed payments validated; credit requires customer
-- [ ] Invoice numbering, invoice view/print
-- [ ] Tests: FEFO, deduction, expired, partial, mixed, concurrency, historical cost
-- [ ] POS UI: keyboard, touch, barcode input
+- [x] `complete_sale` RPC (atomic, idempotent via client request id)
+- [x] FEFO incl. multi-batch split; expired-today rejected
+- [x] Mixed payments validated to the paisa; credit requires customer and respects credit limit
+- [x] Discount (none/amount/percent) with branch limit; below-cost and Rx need permissions
+- [x] Gap-free per-branch invoice numbers, invoice view and print
+- [x] Sale history, draft sales, customer search and quick add
+- [x] Tests: FEFO, deduction, expired, partial, mixed, atomicity, idempotency, historical cost, rounding vectors
+- [x] Real multi-connection concurrency test (`scripts/db-concurrency-test.sh`)
+- [x] POS UI: search, barcode field, keyboard shortcuts (F2/F4), batch picker, payment dialog
+- [ ] Inspect the terminal in a browser against a live Supabase project
+- [ ] Sales returns — Phase 8; customer payments and statements UI — Phase 6
+- [ ] Camera barcode scanning — Phase 12; offline sale outbox — Phase 15
 
 ## Phase 6 — Customers and ledger
 - [ ] Customers, phone search, ledger (append-only), payments, statement, due

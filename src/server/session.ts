@@ -31,11 +31,7 @@ export class SessionLoadError extends Error {
  * what they can see. The permission list only shapes the UI; every write is
  * re-authorised by the database.
  */
-export const getSessionContext = cache(async (): Promise<SessionContext> => {
-  // Per-user data must never be prerendered or cached at build time, even when
-  // the environment is empty and no cookie is read below.
-  await connection();
-
+export async function loadSession(): Promise<SessionContext> {
   const supabase = await createClient();
   if (!supabase) return { status: "unconfigured" };
 
@@ -115,6 +111,13 @@ export const getSessionContext = cache(async (): Promise<SessionContext> => {
     role: membership.role,
     permissions: Array.isArray(permissions) ? permissions.map(String) : [],
   };
+}
+
+export const getSessionContext = cache(async (): Promise<SessionContext> => {
+  // Per-user data must never be prerendered or cached at build time, even when
+  // the environment is empty and no cookie is read.
+  await connection();
+  return loadSession();
 });
 
 export type ReadySession = Extract<SessionContext, { status: "ready" }>;

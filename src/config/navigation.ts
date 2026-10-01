@@ -58,7 +58,8 @@ export const navGroups: NavGroup[] = [
         anyOf: ["sale.create"],
         label: "POS",
         icon: ShoppingCart,
-        phase: 5,
+        phase: null,
+        built: true,
         summary: "Fast counter sales with FEFO batch selection and mixed payments.",
         planned: [
           "Search by name, generic, brand, company, barcode or SKU",
