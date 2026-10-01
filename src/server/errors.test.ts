@@ -66,4 +66,17 @@ describe("mapError", () => {
     expect(mapError(null, "t").code).toBe("UNKNOWN");
     expect(mapError(undefined, "t").code).toBe("UNKNOWN");
   });
+
+  it("gives specific, safe messages for pharmacy rules", () => {
+    expect(mapError({ code: "PH030", message: "expiry date must be after today" }, "t")).toMatchObject({
+      code: "INVALID",
+      message: expect.stringMatching(/expiry date must be after today/i),
+    });
+    expect(mapError({ code: "PH031" }, "t").message).toMatch(/MRP/);
+    expect(mapError({ code: "PH033" }, "t")).toMatchObject({ code: "FORBIDDEN" });
+    expect(mapError({ code: "PH034" }, "t").code).toBe("INVALID");
+    expect(mapError({ code: "PH040", message: "Batch 123 holds 5" }, "t").message).not.toContain("123");
+    expect(mapError({ code: "P0002", message: "medicine not found" }, "t").code).toBe("NOT_FOUND");
+    expect(mapError({ code: "22007" }, "t").code).toBe("INVALID");
+  });
 });

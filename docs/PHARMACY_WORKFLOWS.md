@@ -12,6 +12,13 @@ owner confirmation. APK-derived flows: **[APK-PENDING]** (APK unavailable).
 5. Result: purchase, batches, `PURCHASE` movements, supplier ledger entries, audit.
 **[RULE]** Expiry earlier than today is rejected; expiry within 90 days warns.
 
+## 1a. Opening stock (as built, Phase 3)
+Add a medicine to the catalogue, then add its batches from the medicine page: batch
+number, expiry (must be after today in the branch timezone), quantity on hand, cost,
+sale price, MRP. Each batch becomes a separate row with its own cost; an OPENING_STOCK
+movement records the quantity and who entered it. Prices need `price.edit` to change
+afterwards; cost is never edited.
+
 ## 2. Sell (POS / Quick Sale)
 1. Search/scan → add to cart. Default batch = FEFO; show expiry.
 2. Edit qty, discount (limit by role), see totals (preview only).

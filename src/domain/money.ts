@@ -54,3 +54,22 @@ export function formatMoney(
   const sign = negative && !isZero ? "-" : "";
   return `${sign}${symbol ? "৳" : ""}${body}`;
 }
+
+const AMOUNT_PATTERN = /^(\d{1,10})(?:\.(\d{1,4}))?$/;
+
+/** True for a non-negative amount with at most 4 decimals, e.g. "12", "1.125", "0.5". */
+export function isValidAmount(value: string): boolean {
+  return AMOUNT_PATTERN.test(value.trim());
+}
+
+/**
+ * Exact value in ten-thousandths (scale 4), or null when invalid. Lets forms
+ * compare amounts (sale price vs MRP) without floating point.
+ */
+export function amountToUnits(value: string): bigint | null {
+  const match = AMOUNT_PATTERN.exec(value.trim());
+  if (!match) return null;
+  const whole = match[1] ?? "0";
+  const fraction = (match[2] ?? "").padEnd(4, "0");
+  return BigInt(whole + fraction);
+}

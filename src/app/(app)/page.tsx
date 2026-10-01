@@ -54,7 +54,7 @@ const kpis = [
 
 const quickActions = [
   { href: "/pos", label: "New sale", icon: ReceiptText, phase: 5, anyOf: ["sale.create"] },
-  { href: "/medicines", label: "Add medicine", icon: Pill, phase: 3, anyOf: ["medicine.edit"] },
+  { href: "/medicines/new", label: "Add medicine", icon: Pill, phase: null, anyOf: ["medicine.edit"] },
   { href: "/purchases", label: "Receive stock", icon: Truck, phase: 7, anyOf: ["purchase.create"] },
   { href: "/customers", label: "Record payment", icon: Wallet, phase: 6, anyOf: ["customer.payment"] },
 ] as const;
@@ -141,7 +141,7 @@ export default async function DashboardPage() {
                         {action.label}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        Phase {action.phase}
+                        {action.phase === null ? "Ready" : `Phase ${action.phase}`}
                       </span>
                     </span>
                   </Link>

@@ -63,7 +63,17 @@ const SQLSTATE_MAP: Record<string, { code: AppErrorCode; message?: string }> = {
   "22P02": { code: "INVALID" },
   "22023": { code: "INVALID" },
   "23502": { code: "INVALID" },
+  "22007": { code: "INVALID", message: "That date isn't valid." },
+  P0002: { code: "NOT_FOUND" },
   PH010: { code: "CONFLICT", message: "That record is history and can't be changed." },
+  PH030: { code: "INVALID", message: "The expiry date must be after today. Stock that has expired can't be added." },
+  PH031: { code: "INVALID", message: "The sale price can't be higher than the MRP." },
+  PH033: { code: "FORBIDDEN", message: "You don't have permission to set or change prices." },
+  PH034: { code: "INVALID", message: "That subcategory doesn't belong to the chosen category." },
+  PH040: {
+    code: "CONFLICT",
+    message: "That change would leave the stock count inconsistent, so nothing was saved.",
+  },
 };
 
 type ErrorLike = {

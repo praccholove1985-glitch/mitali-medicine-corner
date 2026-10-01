@@ -47,3 +47,12 @@ $$;
 
 grant usage on schema auth to anon, authenticated, service_role;
 grant usage on schema public to anon, authenticated, service_role;
+
+-- Supabase keeps extensions out of `public`; mirror that so the guard tests that
+-- check public-schema function privileges behave like they do on a real project.
+create schema if not exists extensions;
+grant usage on schema extensions to anon, authenticated, service_role;
+do $$
+begin
+  execute format('alter database %I set search_path = "$user", public, extensions', current_database());
+end $$;

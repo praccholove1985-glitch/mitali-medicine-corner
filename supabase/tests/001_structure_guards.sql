@@ -61,4 +61,25 @@ select t.ok(
   has_function_privilege('service_role', 'public.bootstrap_pharmacy(text,text)', 'execute'),
   'bootstrap_pharmacy is executable by service_role');
 
+-- Cost never leaves through a plain table read.
+select t.ok(
+  not has_column_privilege('authenticated', 'public.medicines', 'default_purchase_price', 'select')
+  and not has_column_privilege('authenticated', 'public.medicine_batches', 'purchase_price', 'select')
+  and has_column_privilege('authenticated', 'public.medicines', 'default_sale_price', 'select'),
+  'authenticated cannot select cost columns but can select sale prices');
+
+-- Internal helpers are not part of the API surface.
+select t.ok(
+  not has_function_privilege('authenticated', 'public.require_permission(uuid,text)', 'execute')
+  and not has_function_privilege('authenticated', 'public.require_permission_any(text)', 'execute')
+  and not has_function_privilege('authenticated', 'public.branch_today(uuid)', 'execute')
+  and not has_function_privilege('authenticated', 'public.check_batch_stock_invariant()', 'execute'),
+  'permission helpers, branch_today and the invariant trigger are not executable by authenticated');
+
+-- Extensions live outside public (as on Supabase).
+select t.ok(
+  (select count(*) = 0 from pg_extension e join pg_namespace n on n.oid = e.extnamespace
+    where n.nspname = 'public' and e.extname <> 'plpgsql'),
+  'no extension is installed in the public schema');
+
 rollback;
