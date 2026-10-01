@@ -7,6 +7,9 @@
 #   4. a sale waiting on a locked batch re-reads the stock after the first commits
 #   5. six cashiers each try to take 40 against a 100 due: exactly 2 are accepted, the due
 #      ends at 20 and never goes negative
+#   6. four purchases entering the SAME supplier invoice at once: exactly one is recorded
+#   7. six purchases topping up one batch at once: no unit is lost, the invoice numbers have no gaps
+#   8. six payments to a supplier at once cannot pay more than is owed
 #
 #   scripts/db-concurrency-test.sh      (same DATABASE_ADMIN_URL convention as db-test.sh)
 set -uo pipefail
@@ -162,6 +165,99 @@ refused=$(cat "$TMP"/pe?.txt | grep -c 'payment exceeds what is due' || true)
 due=$(db_psql_loose -c "select sum(amount) from public.customer_ledger_entries where customer_id = '$CUST'")
 [[ "$due" == "20.00" ]] || fail "the due should end at 20.00, got $due"
 ok "six simultaneous 40 payments against a 100 due: 2 accepted, 4 refused, due ended at 20.00"
+
+# ---- 6, 7, 8: purchases ------------------------------------------------------------------------------
+ADMIN=a1000000-0000-0000-0000-000000000001
+SUP=5a000000-0000-0000-0000-000000000001
+db_psql <<SQL
+begin;
+insert into auth.users (id, email, raw_user_meta_data) values ('$ADMIN', 'admin@test', '{"full_name":"Admin"}');
+insert into public.branch_members (user_id, branch_id, role) values ('$ADMIN', '$BR', 'ADMIN');
+insert into public.suppliers (id, branch_id, name) values ('$SUP', '$BR', 'Square');
+commit;
+SQL
+purchase_sql() {  # $1 request id, $2 supplier invoice no, $3 batch number, $4 quantity, $5 sleep
+  cat <<SQL
+begin;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"$ADMIN","role":"authenticated"}', true);
+select 'OK:' || (public.create_purchase(jsonb_build_object(
+  'branch_id', '$BR', 'client_request_id', '$1', 'supplier_id', '$SUP',
+  'supplier_invoice_no', '$2', 'invoice_date', current_date::text,
+  'items', jsonb_build_array(jsonb_build_object('medicine_id', '$MED', 'batch_number', '$3',
+     'expiry_date', (current_date + 300)::text, 'quantity', $4, 'free_quantity', 0, 'unit_price', '2.00',
+     'sale_price', '3.00', 'mrp', '4.00')))) ->> 'purchase_no');
+select pg_sleep($5);
+commit;
+SQL
+}
+
+# 6: the same supplier invoice entered from four connections (different request ids)
+for i in 1 2 3 4; do
+  purchase_sql "dddddddd-6666-0000-0000-00000000000$i" "SQ-SAME" "DUP" 10 0.3 > "$TMP/d$i.sql"
+  ( db_psql_loose < "$TMP/d$i.sql" > "$TMP/do$i.txt" 2> "$TMP/de$i.txt" ) &
+done
+wait
+accepted=$(cat "$TMP"/do?.txt | grep -c '^OK:' || true)
+refused=$(cat "$TMP"/de?.txt | grep -c 'already entered' || true)
+[[ "$accepted" == "1" ]] || fail "expected 1 recorded purchase for one supplier invoice, got $accepted"
+[[ "$refused" == "3" ]] || fail "expected 3 refused as duplicates, got $refused"
+dup_qty=$(db_psql_loose -c "select quantity from public.medicine_batches where batch_number = 'DUP'")
+[[ "$dup_qty" == "10" ]] || fail "the batch should hold 10 units from the one recorded purchase, got $dup_qty"
+ok "four simultaneous entries of one supplier invoice: 1 recorded, 3 refused, stock added once"
+
+# 7: six top-ups of one batch at once
+purchase_sql "dddddddd-7777-0000-0000-000000000000" "SQ-BASE" "TOP" 5 0 > "$TMP/t0.sql"
+db_psql_loose < "$TMP/t0.sql" > /dev/null
+for i in 1 2 3 4 5 6; do
+  purchase_sql "dddddddd-7777-0000-0000-00000000000$i" "SQ-TOP-$i" "TOP" 10 0.3 > "$TMP/t$i.sql"
+  ( db_psql_loose < "$TMP/t$i.sql" > "$TMP/to$i.txt" 2> "$TMP/te$i.txt" ) &
+done
+wait
+accepted=$(cat "$TMP"/to?.txt | grep -c '^OK:' || true)
+[[ "$accepted" == "6" ]] || fail "all 6 top-ups should be recorded, got $accepted"
+top_qty=$(db_psql_loose -c "select quantity from public.medicine_batches where batch_number = 'TOP'")
+[[ "$top_qty" == "65" ]] || fail "the batch should hold 5 + 6 x 10 = 65 units, got $top_qty"
+top_batches=$(db_psql_loose -c "select count(*) from public.medicine_batches where batch_number = 'TOP'")
+[[ "$top_batches" == "1" ]] || fail "all top-ups belong to one batch, found $top_batches"
+pseqs=$(db_psql_loose -c "select string_agg(purchase_seq::text, ',' order by purchase_seq) from public.purchases")
+[[ "$pseqs" == "1,2,3,4,5,6,7,8" ]] || fail "purchase numbers should be 1..8 without gaps, got $pseqs"
+ok "six simultaneous top-ups of one batch: 65 units, one batch, purchase numbers 1..8 with no gaps (refused duplicates used none)"
+
+# 8: supplier payments cannot overpay
+db_psql <<SQL
+begin;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"$ADMIN","role":"authenticated"}', true);
+reset role;
+insert into public.supplier_ledger_entries (branch_id, supplier_id, entry_type, amount) values ('$BR', '$SUP', 'ADJUSTMENT', -(select sum(amount) from public.supplier_ledger_entries where supplier_id = '$SUP'));
+insert into public.supplier_ledger_entries (branch_id, supplier_id, entry_type, amount) values ('$BR', '$SUP', 'OPENING_BALANCE', 100);
+commit;
+SQL
+spay_sql() {
+  cat <<SQL
+begin;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"$ADMIN","role":"authenticated"}', true);
+select 'OK:' || (public.pay_supplier(jsonb_build_object(
+  'branch_id', '$BR', 'supplier_id', '$SUP', 'client_request_id', '$1',
+  'method', 'CASH', 'amount', '40')) ->> 'balance_after');
+select pg_sleep(0.3);
+commit;
+SQL
+}
+for i in 1 2 3 4 5 6; do
+  spay_sql "eeeeeeee-8888-0000-0000-00000000000$i" > "$TMP/sp$i.sql"
+  ( db_psql_loose < "$TMP/sp$i.sql" > "$TMP/spo$i.txt" 2> "$TMP/spe$i.txt" ) &
+done
+wait
+accepted=$(cat "$TMP"/spo?.txt | grep -c '^OK:' || true)
+refused=$(cat "$TMP"/spe?.txt | grep -c 'payment exceeds what is owed' || true)
+[[ "$accepted" == "2" ]] || fail "expected 2 accepted supplier payments, got $accepted"
+[[ "$refused" == "4" ]] || fail "expected 4 refused supplier payments, got $refused"
+owed=$(db_psql_loose -c "select sum(amount) from public.supplier_ledger_entries where supplier_id = '$SUP'")
+[[ "$owed" == "20.00" ]] || fail "the supplier should still be owed 20.00, got $owed"
+ok "six simultaneous 40 payments against 100 owed: 2 accepted, 4 refused, 20.00 left"
 
 # Everything still reconciles.
 db_psql_loose <<SQL > "$TMP/recon.txt"

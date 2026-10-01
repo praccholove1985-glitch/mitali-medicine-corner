@@ -358,3 +358,15 @@ received payment to its ledger entry. Functions: `receive_customer_payment` (err
 is due or the amount is more than is due; the hint carries the due amount), `list_customers`
 (search, filter, paging, `over_limit`), `due_summary`, `customer_summary`, `customer_statement`
 (branch-timezone date range, running balances, 1,000-entry cap with a `truncated` flag).
+
+## Phase 7 — Suppliers and purchases (migrations 14-16)
+
+Tables: `suppliers`, `supplier_ledger_entries` (append-only; positive = we owe), `purchase_counters`,
+`purchases` (checks: subtotal - discount + tax = total, paid + due = total; unique per supplier invoice
+number), `purchase_items` (no table grant; read through `get_purchase`). `payments` gains `supplier_id`
+and `purchase_id` (money out needs a supplier; money in never has one) and its select policy now treats
+`OUT` rows as supplier data. `medicine_batches.supplier_id` now has its foreign key.
+Functions: `save_supplier`, `search_suppliers`, `list_suppliers`, `supplier_due_summary`,
+`supplier_summary`, `supplier_statement`, `pay_supplier`, `purchase_plan` (internal arithmetic),
+`quote_purchase`, `create_purchase`, `list_purchases`, `get_purchase`. Error codes PH059-PH063.
+The ledger records the whole invoice (`PURCHASE_DUE`) and each payment made at the time (`PAYMENT`).
