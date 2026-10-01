@@ -25,6 +25,8 @@ export type NavItem = {
   summary: string;
   /** What the module will do; shown on the placeholder page. */
   planned: string[];
+  /** The module has its own pages; it needs no placeholder. */
+  built?: boolean;
   /**
    * The item is shown when the user holds ANY of these permissions. Omitted
    * means everyone signed in. Cosmetic only: the database enforces access.
@@ -88,7 +90,8 @@ export const navGroups: NavGroup[] = [
         anyOf: ["medicine.view"],
         label: "Medicines",
         icon: Pill,
-        phase: 3,
+        phase: null,
+        built: true,
         summary: "The medicine catalogue: names, generics, companies, categories and prices.",
         planned: [
           "Medicine master with company, category and dosage form",
@@ -230,7 +233,7 @@ export function getNavGroups(): NavGroup[] {
 /** Modules served by the generic placeholder route (everything but the dashboard). */
 export const placeholderModules: NavItem[] = navGroups
   .flatMap((group) => group.items)
-  .filter((item) => item.href !== "/");
+  .filter((item) => item.href !== "/" && !item.built);
 
 export function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";

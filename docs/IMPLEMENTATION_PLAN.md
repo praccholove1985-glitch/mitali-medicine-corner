@@ -12,7 +12,7 @@ tests work together.
 | 0 | Architecture + setup | **In progress** — docs written; shadcn init and APK analysis pending (see Open items) |
 | 1 | DB + Auth + RLS | **Done in code and local tests**; not yet applied to a Supabase project, sign-in not yet exercised live |
 | 2 | App shell + design system | **Done** (built before Phase 1 at the owner's instruction; nav is not yet permission-aware) |
-| 3 | Medicine master + batches | Not started |
+| 3 | Medicine master + batches | **Done in code and local tests**; not applied to Supabase, screens not exercised against live data |
 | 4 | Inventory | Not started |
 | 5 | Quick Sale / POS | Not started |
 | 6 | Customers + ledger | Not started |

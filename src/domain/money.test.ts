@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMoney } from "./money";
+import { amountToUnits, formatMoney, isValidAmount } from "./money";
 
 describe("formatMoney", () => {
   it("groups digits the Bangladeshi way", () => {
@@ -39,5 +39,29 @@ describe("formatMoney", () => {
     expect(formatMoney("")).toBeNull();
     expect(formatMoney("abc")).toBeNull();
     expect(formatMoney("1e5")).toBeNull();
+  });
+});
+
+describe("amounts", () => {
+  it("validates non-negative amounts with up to four decimals", () => {
+    for (const ok of ["0", "12", "12.5", "1.125", "0.0001", "9999999999.9999"]) {
+      expect(isValidAmount(ok), ok).toBe(true);
+    }
+    for (const bad of ["", "-1", "1.", ".5", "1.12345", "1e3", "abc", "1,000", "12345678901"]) {
+      expect(isValidAmount(bad), bad).toBe(false);
+    }
+  });
+
+  it("converts to exact ten-thousandths", () => {
+    expect(amountToUnits("1.5")).toBe(BigInt(15000));
+    expect(amountToUnits("1.1250")).toBe(BigInt(11250));
+    expect(amountToUnits("0.0001")).toBe(BigInt(1));
+    expect(amountToUnits("x")).toBeNull();
+  });
+
+  it("compares amounts exactly where doubles would not", () => {
+    // 0.1 + 0.2 !== 0.3 in floating point; as units they are exact.
+    const sum = (amountToUnits("0.1") ?? BigInt(0)) + (amountToUnits("0.2") ?? BigInt(0));
+    expect(sum).toBe(amountToUnits("0.3"));
   });
 });

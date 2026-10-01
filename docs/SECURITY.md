@@ -134,3 +134,21 @@ drill schedule (Supabase PITR availability depends on plan).
 - Not yet exercised against a live Supabase project: sign-in, cookie refresh and
   the session queries. The database side is tested locally; the Auth/PostgREST
   wiring needs a real project to confirm.
+
+## 12. As built — Phase 3
+
+- Cost never leaves through a table read: cost columns are excluded from
+  `authenticated`'s column privileges (guard test), and only functions that check
+  `purchase.view_cost` return them. The UI also omits the cost column and purchase-price
+  field for roles without it.
+- Medicine, batch and movement tables accept no direct writes; every change is a
+  function that checks the permission itself, rejects unknown fields, and is audited.
+- Price edits are a separate permission from catalogue edits; a pharmacist can fix a
+  medicine's details but cannot set or change prices.
+- Stock can't drift: the commit-time invariant means no bug in a later RPC can leave a
+  batch quantity unexplained by movements.
+- Search treats input as plain text (LIKE wildcards escaped; parameters bound).
+- Server actions re-validate with zod (the same schemas as the forms), build the RPC
+  payload from the validated values only, and map every database error to a safe
+  message; unique-violation text is inspected only to pick the field to highlight.
+- Not yet exercised against a live Supabase project (see Phase 1 caveats).

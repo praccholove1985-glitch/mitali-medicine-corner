@@ -215,3 +215,53 @@ isolation, inactive users, write denial, audit, sign-up and bootstrap, and the
 session queries. Set `DATABASE_ADMIN_URL` to run it in CI. The stub is not a
 substitute for running the migrations on real Supabase; do that on a branch or
 scratch project before production.
+
+## 8. As built — Phase 3 (catalogue, batches, stock movements)
+
+Migrations `20261001000005`–`07`. Tables: `companies`, `categories`, `subcategories`,
+`medicines`, `medicine_batches`, `stock_movements`.
+
+**Decisions**
+- **Catalogue is organisation-wide** (every branch sells the same drugs); batches and
+  movements are per branch. Catalogue permissions mean "in any branch"
+  (`has_permission_any`).
+- **Writes only through functions**: `save_company/category/subcategory`,
+  `save_medicine(id, jsonb)`, `create_batch(jsonb)`, `update_batch_prices`. Unknown
+  JSON keys are rejected, so a typo can't silently do nothing.
+- **Prices**: `default_sale_price` / `default_purchase_price` / batch prices are
+  `numeric(14,4)`, nullable on the medicine ("not set", never a fake 0). Setting or
+  changing them needs `price.edit` (PH033); MRP needs only `medicine.edit` because it
+  is printed on the pack. A sale price above MRP is refused (PH031).
+- **Cost privacy**: `medicines.default_purchase_price` and
+  `medicine_batches.purchase_price` are not selectable by `authenticated`
+  (column privileges), so `select *` fails by design. Cost comes only from
+  `list_batches` (null unless `purchase.view_cost`) and `medicine_default_cost`.
+- **Batch identity**: unique on `(branch, medicine, supplier, batch_number, expiry)`
+  with `NULLS NOT DISTINCT`, so "no supplier" can't be duplicated. The same batch
+  number is fine for another medicine or expiry. `supplier_id` has no FK yet; Phase 7
+  adds it with the suppliers table.
+- **Stock invariant**: a deferred constraint trigger checks, at COMMIT, that every
+  touched batch's `quantity` equals the sum of its movements (PH040). A writer can't
+  commit one without the other, including the table owner. Movements are append-only
+  (PH010), must name the batch's own branch and medicine, have a fixed sign per type,
+  and manual types require a reason.
+- **`create_batch`** records opening stock: it writes the batch and an `OPENING_STOCK`
+  movement atomically and needs `batch.edit` + `stock.adjust`. It refuses expiry on or
+  before today in the branch's timezone (PH030). Top-ups of an existing batch belong to
+  purchases (Phase 7) and adjustments (Phase 4).
+- **Search**: `search_medicines(branch, query, limit, offset, include_inactive)` ranks
+  exact barcode/SKU, then name prefix, then contains (name, generic, brand, company).
+  Wildcards in the query are escaped. Stock on hand counts unexpired batches only and
+  is null (not 0) without `stock.view`.
+- `pg_trgm` is installed in the `extensions` schema, as on Supabase.
+
+**Measured** (local PostgreSQL 16, 10,000 medicines, 20,000 batches, `008_search_perf.sql`):
+every search tested returned in 28–62 ms (first page 33 ms, prefix 55 ms, contains 57 ms,
+generic 62 ms, company 28 ms, exact barcode 29 ms, no match 42 ms). Target was <100 ms.
+Exact-barcode lookups are slower than an index probe would be because the query uses one
+OR-ed predicate; if the POS needs faster scans, add a barcode/SKU fast path in Phase 5.
+
+Tests: 202 checks in total (`scripts/db-test.sh`); `006_catalogue.sql`,
+`007_batches.sql` and `008_search_perf.sql` are new. Two defects were found by these
+tests while writing them (missing timestamps on a function-built row; a trigger
+referencing a column that doesn't exist on one of its tables) and fixed before commit.

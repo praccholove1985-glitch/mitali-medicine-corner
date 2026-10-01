@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { connection } from "next/server";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { mapError } from "@/server/errors";
 import type { Role, SessionContext } from "@/types/session";
@@ -115,3 +116,17 @@ export const getSessionContext = cache(async (): Promise<SessionContext> => {
     permissions: Array.isArray(permissions) ? permissions.map(String) : [],
   };
 });
+
+export type ReadySession = Extract<SessionContext, { status: "ready" }>;
+
+/**
+ * For pages and actions that need a signed-in member. Redirects otherwise.
+ * Permission here is a courtesy: the database re-checks every operation.
+ */
+export async function requireSession(): Promise<ReadySession> {
+  const session = await getSessionContext();
+  if (session.status === "unconfigured") redirect("/setup");
+  if (session.status === "anonymous") redirect("/login");
+  if (session.status === "no_access") redirect("/");
+  return session;
+}

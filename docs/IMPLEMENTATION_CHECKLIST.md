@@ -49,10 +49,19 @@ clean; affected UI inspected; docs updated.
 - [ ] axe automated scan (axe not installed)
 
 ## Phase 3 — Medicine master and batches
-- [ ] Companies, categories, subcategories
-- [ ] Medicines CRUD + audit (incl. price change)
-- [ ] Trigram + barcode/SKU search RPC; 10k-row seed benchmark
-- [ ] Batch tables + uniqueness rule tests
+- [x] Companies, categories, subcategories (create, rename, retire)
+- [x] Medicines: create/edit with audit; price changes need `price.edit` and are audited
+- [x] Search by name, generic, brand, company, barcode, SKU; 10k-row benchmark (28-62 ms)
+- [x] Batches with expiry, cost, sale price, MRP; opening stock via `create_batch`
+- [x] Batch uniqueness rules tested; same number allowed across medicines/expiry
+- [x] `stock_movements` (append-only) and the commit-time stock invariant
+- [x] Cost columns hidden from roles without `purchase.view_cost`
+- [x] Screens: medicine list (search, paging), add/edit, batches card, companies & categories
+- [x] Topbar search opens the medicine search
+- [ ] Verify the screens against a live Supabase project
+- [ ] Barcode fast path (decide in Phase 5 from POS needs)
+- [ ] Batch edit beyond prices (expiry/number corrections) — Phase 4 adjustments
+- [ ] Medicine image upload (Storage) — field exists, no upload UI yet
 
 ## Phase 4 — Inventory
 - [ ] Stock list, batch view, movements list (keyset paginated)
