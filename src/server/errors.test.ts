@@ -79,4 +79,11 @@ describe("mapError", () => {
     expect(mapError({ code: "P0002", message: "medicine not found" }, "t").code).toBe("NOT_FOUND");
     expect(mapError({ code: "22007" }, "t").code).toBe("INVALID");
   });
+
+  it("explains stock rules in plain words", () => {
+    expect(mapError({ code: "PH041", message: "cannot remove 5 from a batch holding 2" }, "t").message).not.toMatch(/\b5\b|\b2\b/);
+    expect(mapError({ code: "PH041" }, "t").code).toBe("CONFLICT");
+    expect(mapError({ code: "PH042" }, "t").code).toBe("INVALID");
+    expect(mapError({ code: "PH043" }, "t").message).toMatch(/no expired stock/i);
+  });
 });

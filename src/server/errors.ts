@@ -70,6 +70,9 @@ const SQLSTATE_MAP: Record<string, { code: AppErrorCode; message?: string }> = {
   PH031: { code: "INVALID", message: "The sale price can't be higher than the MRP." },
   PH033: { code: "FORBIDDEN", message: "You don't have permission to set or change prices." },
   PH034: { code: "INVALID", message: "That subcategory doesn't belong to the chosen category." },
+  PH041: { code: "CONFLICT", message: "You can't remove more than is on hand for that batch." },
+  PH042: { code: "INVALID", message: "That batch hasn't expired yet, so it can't be written off as expired." },
+  PH043: { code: "CONFLICT", message: "There is no expired stock left to write off in those batches." },
   PH040: {
     code: "CONFLICT",
     message: "That change would leave the stock count inconsistent, so nothing was saved.",

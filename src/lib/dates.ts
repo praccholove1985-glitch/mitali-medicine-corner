@@ -27,3 +27,21 @@ export function formatDate(isoDate: string): string {
   const month = MONTHS[Number(match[2]) - 1];
   return month ? `${Number(match[3])} ${month} ${match[1]}` : isoDate;
 }
+
+/**
+ * "31 Mar 2027, 4:05 pm" in an IANA timezone. Server-side only: formatting in the
+ * browser would use the viewer's locale and zone and could mismatch on hydration.
+ */
+export function formatDateTime(isoInstant: string, timeZone: string): string {
+  const date = new Date(isoInstant);
+  if (Number.isNaN(date.getTime())) return isoInstant;
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
+}

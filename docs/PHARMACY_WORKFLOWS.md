@@ -19,6 +19,16 @@ sale price, MRP. Each batch becomes a separate row with its own cost; an OPENING
 movement records the quantity and who entered it. Prices need `price.edit` to change
 afterwards; cost is never edited.
 
+## 1b. Stock adjustment and expiry (as built, Phase 4)
+From a medicine's batch list, anyone with `stock.adjust` can record: a count that
+differs from the system (up or down), a correction of an earlier mistake, damage or
+loss (down only), or expiry (down only, and only once the batch has expired). A reason
+is required and the history keeps who did it. The dialog shows the resulting total and
+refuses to go below zero. Expired stock is listed on the Expiry tab (expired, then
+30/60/90-day windows); "Write off" takes the expired batches on the page out of stock in
+one step, keeping the batches and their history. Low stock is any medicine with a reorder
+level whose sellable stock (unexpired only) is at or below it.
+
 ## 2. Sell (POS / Quick Sale)
 1. Search/scan → add to cart. Default batch = FEFO; show expiry.
 2. Edit qty, discount (limit by role), see totals (preview only).

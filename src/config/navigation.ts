@@ -104,7 +104,8 @@ export const navGroups: NavGroup[] = [
         anyOf: ["stock.view"],
         label: "Inventory",
         icon: Boxes,
-        phase: 4,
+        phase: null,
+        built: true,
         summary: "Stock on hand by batch, expiry watch and the movement history.",
         planned: [
           "Per-batch stock with FEFO order",

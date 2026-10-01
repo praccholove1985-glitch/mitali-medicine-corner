@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, nextDay, todayInTimezone } from "./dates";
+import { formatDate, formatDateTime, nextDay, todayInTimezone } from "./dates";
 
 describe("todayInTimezone", () => {
   it("uses the timezone's calendar day, not UTC's", () => {
@@ -28,5 +28,16 @@ describe("formatDate", () => {
   it("returns unrecognised input unchanged", () => {
     expect(formatDate("soon")).toBe("soon");
     expect(formatDate("2026-13-01")).toBe("2026-13-01");
+  });
+});
+
+describe("formatDateTime", () => {
+  it("shows the instant in the given timezone", () => {
+    // 18:30 UTC is 12:30 am the next day in Dhaka (UTC+6).
+    expect(formatDateTime("2026-12-31T18:30:00Z", "Asia/Dhaka")).toMatch(/1 Jan 2027, 12:30\s?am/i);
+    expect(formatDateTime("2026-12-31T18:30:00Z", "UTC")).toMatch(/31 Dec 2026, 6:30\s?pm/i);
+  });
+  it("returns unparseable input unchanged", () => {
+    expect(formatDateTime("later", "UTC")).toBe("later");
   });
 });
