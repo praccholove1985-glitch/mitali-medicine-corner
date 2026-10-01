@@ -106,3 +106,31 @@ content avoids medicine names by default.
 
 MFA enforcement, retention policy, breach-notification contact, backup/restore
 drill schedule (Supabase PITR availability depends on plan).
+
+## 11. As built — Phase 1
+
+- Sign-in is email + password through Supabase Auth; the session lives in an
+  HTTP-only cookie managed by `@supabase/ssr`. Sign-up is not exposed in the UI;
+  accounts are created by an administrator in Supabase Auth.
+- `src/proxy.ts` refreshes the session and keeps signed-out visitors off app pages.
+  It is an optimistic gate only. The (app) layout re-checks the session on the
+  server with `auth.getUser()` (validated by the Auth server, not a cookie decode)
+  and the database enforces permissions.
+- A signed-in user with no active branch membership sees a "no access" screen;
+  the database returns them no rows.
+- Navigation, dashboard cards and shortcuts are filtered by permission. This is
+  cosmetic; the database is the control. Cost/profit cards are not drawn for roles
+  without `finance.view_profit` / `purchase.view_cost`.
+- Wrong password and unknown email produce the same message. Post-login redirects
+  accept same-site paths only (`safeNextPath`, tested against `//host`, schemes,
+  control characters).
+- Database and Auth errors are mapped to safe messages (`server/errors.ts`); the
+  log line carries a reference id, code and truncated message, never row values.
+- Baseline headers: `X-Content-Type-Options`, `X-Frame-Options: DENY`,
+  `Referrer-Policy`, `Permissions-Policy` (camera allowed for barcode scanning).
+  A CSP needs a nonce for the theme script and is scheduled for Phase 16.
+- The app reads only `NEXT_PUBLIC_SUPABASE_URL` and the publishable key. No service
+  role key is read anywhere in the codebase yet.
+- Not yet exercised against a live Supabase project: sign-in, cookie refresh and
+  the session queries. The database side is tested locally; the Auth/PostgREST
+  wiring needs a real project to confirm.

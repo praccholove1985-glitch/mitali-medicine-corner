@@ -20,22 +20,30 @@ clean; affected UI inspected; docs updated.
 - [ ] Supabase project chosen and connected
 
 ## Phase 1 — Database, Auth, RLS
-- [ ] Migrations: branches, profiles, branch_members, roles/permissions, audit_log
-- [ ] `my_branches()`, `has_permission()`
-- [ ] Append-only triggers + revoked write privileges
-- [ ] Auth wiring: `proxy.ts`, SSR clients, login/logout
-- [ ] Seeds: roles, permissions, default branch
-- [ ] RLS tests: each role, each table, cross-branch denial
+- [x] Migrations: branches, profiles, branch_members, permissions, role bundles, overrides, audit_log
+- [x] `my_branches()`, `has_permission()`, `my_permissions()`
+- [x] Append-only audit log + audit triggers; write privileges revoked
+- [x] RLS on every table; anon has nothing; guard tests fail the build on a new unprotected table
+- [x] Reference data: 33 permission codes, five role bundles
+- [x] Bootstrap function for the first administrator
+- [x] Auth wiring: `proxy.ts`, server client, login/logout, no-access and setup screens
+- [x] Permission-aware navigation, dashboard cards and shortcuts
+- [x] Error mapping (`server/errors.ts`) with tests
+- [x] DB tests: 84 checks (`scripts/db-test.sh`); mutation-checked
+- [ ] Apply migrations to a Supabase project (blocked: no project chosen)
+- [ ] Exercise real sign-in, cookie refresh and the session queries against Supabase
+- [ ] Run `scripts/db-test.sh` in CI
+- [ ] Branch switcher (only needed once a user belongs to >1 branch)
 
 ## Phase 2 — Shell and design system
 - [x] Layout (sidebar, tablet rail, topbar, mobile drawer)
-- [ ] Permission-aware nav (needs Phase 1 permissions)
+- [x] Permission-aware nav (done in Phase 1)
 - [x] Tokens, light + dark theme, typography (Geist + Noto Sans Bengali)
 - [x] Button, Card, Input/Select/Textarea, Field, Badge, Alert, Table, Dialog, Sheet, Skeleton
 - [x] DataTable (loading / error / empty / data), PageHeader, StatCard, MoneyText, Status/Expiry/Stock badges
 - [x] Route error boundary, loading UI, 404
 - [x] Money formatter with tests (`domain/money.ts`)
-- [ ] Error mapping (`server/errors.ts`) — moves to Phase 1 with the database error codes
+- [x] Error mapping (`server/errors.ts`) — done in Phase 1
 - [x] Checked at 1440/1024/768/390 px, light and dark, reduced motion
 - [x] Keyboard: skip link, drawer, dialog trap and focus return, inline form errors
 - [ ] axe automated scan (axe not installed)

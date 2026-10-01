@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
 import { StatusBadge } from "@/components/common/status-badge";
-import { placeholderModules } from "@/config/navigation";
+import { canSee, placeholderModules } from "@/config/navigation";
+import { getSessionContext } from "@/server/session";
+import { ShieldOff } from "lucide-react";
 
 type Props = { params: Promise<{ module: string }> };
 
@@ -34,6 +36,25 @@ export default async function ModulePlaceholderPage({ params }: Props) {
   const { module: slug } = await params;
   const item = findModule(slug);
   if (!item) notFound();
+
+  // The database is the real gate; this stops a user landing on a page whose
+  // data they could not load anyway.
+  const session = await getSessionContext();
+  if (session.status === "ready" && !canSee(item, session.permissions)) {
+    return (
+      <>
+        <PageHeader title={item.label} />
+        <Card>
+          <EmptyState
+            size="page"
+            icon={ShieldOff}
+            title="You don't have access to this section"
+            description="Ask the shop owner if you need it."
+          />
+        </Card>
+      </>
+    );
+  }
 
   return (
     <>

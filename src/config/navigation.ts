@@ -25,6 +25,11 @@ export type NavItem = {
   summary: string;
   /** What the module will do; shown on the placeholder page. */
   planned: string[];
+  /**
+   * The item is shown when the user holds ANY of these permissions. Omitted
+   * means everyone signed in. Cosmetic only: the database enforces access.
+   */
+  anyOf?: string[];
 };
 
 export type NavGroup = { label: string; items: NavItem[] };
@@ -48,6 +53,7 @@ export const navGroups: NavGroup[] = [
     items: [
       {
         href: "/pos",
+        anyOf: ["sale.create"],
         label: "POS",
         icon: ShoppingCart,
         phase: 5,
@@ -61,6 +67,7 @@ export const navGroups: NavGroup[] = [
       },
       {
         href: "/customers",
+        anyOf: ["customer.view"],
         label: "Customers",
         icon: Users,
         phase: 6,
@@ -78,6 +85,7 @@ export const navGroups: NavGroup[] = [
     items: [
       {
         href: "/medicines",
+        anyOf: ["medicine.view"],
         label: "Medicines",
         icon: Pill,
         phase: 3,
@@ -90,6 +98,7 @@ export const navGroups: NavGroup[] = [
       },
       {
         href: "/inventory",
+        anyOf: ["stock.view"],
         label: "Inventory",
         icon: Boxes,
         phase: 4,
@@ -102,6 +111,7 @@ export const navGroups: NavGroup[] = [
       },
       {
         href: "/purchases",
+        anyOf: ["purchase.view"],
         label: "Purchases",
         icon: Truck,
         phase: 7,
@@ -114,6 +124,7 @@ export const navGroups: NavGroup[] = [
       },
       {
         href: "/suppliers",
+        anyOf: ["supplier.view"],
         label: "Suppliers",
         icon: Building2,
         phase: 7,
@@ -122,6 +133,7 @@ export const navGroups: NavGroup[] = [
       },
       {
         href: "/returns",
+        anyOf: ["sale.return", "purchase.return"],
         label: "Returns",
         icon: CornerUpLeft,
         phase: 8,
@@ -139,6 +151,7 @@ export const navGroups: NavGroup[] = [
     items: [
       {
         href: "/finance",
+        anyOf: ["expense.view", "finance.view_profit"],
         label: "Finance",
         icon: Landmark,
         phase: 9,
@@ -151,6 +164,7 @@ export const navGroups: NavGroup[] = [
       },
       {
         href: "/reports",
+        anyOf: ["report.view", "report.view_own"],
         label: "Reports",
         icon: BarChart3,
         phase: 10,
@@ -168,6 +182,7 @@ export const navGroups: NavGroup[] = [
     items: [
       {
         href: "/staff",
+        anyOf: ["staff.view", "staff.manage"],
         label: "Staff",
         icon: UserCog,
         phase: 14,
@@ -180,6 +195,7 @@ export const navGroups: NavGroup[] = [
       },
       {
         href: "/settings",
+        anyOf: ["settings.view", "settings.edit"],
         label: "Settings",
         icon: Settings,
         phase: 14,
@@ -219,4 +235,22 @@ export const placeholderModules: NavItem[] = navGroups
 export function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export function canSee(
+  item: { readonly anyOf?: readonly string[] },
+  permissions: readonly string[],
+): boolean {
+  if (!item.anyOf || item.anyOf.length === 0) return true;
+  return item.anyOf.some((code) => permissions.includes(code));
+}
+
+/** Groups with the items the user may see; empty groups are dropped. */
+export function visibleNavGroups(permissions: readonly string[]): NavGroup[] {
+  return getNavGroups()
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => canSee(item, permissions)),
+    }))
+    .filter((group) => group.items.length > 0);
 }

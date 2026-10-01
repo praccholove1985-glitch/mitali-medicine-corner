@@ -1,0 +1,69 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mapError } from "./errors";
+
+describe("mapError", () => {
+  let spy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("maps permission failures without logging", () => {
+    const result = mapError({ code: "42501", message: 'permission denied for table "audit_log"' }, "t");
+    expect(result.code).toBe("FORBIDDEN");
+    expect(result.message).not.toMatch(/audit_log|table/i);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("never leaks raw database text", () => {
+    const raw = 'duplicate key value violates unique constraint "customers_phone_key"';
+    const result = mapError({ code: "23505", message: raw, details: "Key (phone)=(01711111111) already exists." }, "t");
+    expect(result.code).toBe("CONFLICT");
+    expect(result.message).not.toContain("customers_phone_key");
+    expect(result.message).not.toContain("01711111111");
+  });
+
+  it("maps append-only violations", () => {
+    expect(mapError({ code: "PH010", message: "audit_log is append-only" }, "t").code).toBe("CONFLICT");
+  });
+
+  it("maps invalid input and missing rows", () => {
+    expect(mapError({ code: "23514" }, "t").code).toBe("INVALID");
+    expect(mapError({ code: "22P02" }, "t").code).toBe("INVALID");
+    expect(mapError({ code: "PGRST116" }, "t").code).toBe("NOT_FOUND");
+  });
+
+  it("maps auth failures", () => {
+    expect(mapError({ code: "invalid_credentials", status: 400 }, "t").code).toBe("UNAUTHENTICATED");
+    expect(mapError({ code: "PGRST301" }, "t").code).toBe("UNAUTHENTICATED");
+    expect(mapError({ status: 401 }, "t").code).toBe("UNAUTHENTICATED");
+  });
+
+  it("maps rate limiting", () => {
+    expect(mapError({ status: 429 }, "t").code).toBe("RATE_LIMITED");
+    expect(mapError({ code: "over_request_rate_limit" }, "t").code).toBe("RATE_LIMITED");
+  });
+
+  it("maps network failures, with a reference and a log line", () => {
+    const result = mapError(new TypeError("fetch failed"), "session.load");
+    expect(result.code).toBe("UNAVAILABLE");
+    expect(result.reference).toMatch(/^[0-9a-f]{8}$/);
+    expect(spy).toHaveBeenCalledTimes(1);
+    const logged = JSON.parse(String(spy.mock.calls[0]?.[0]));
+    expect(logged.context).toBe("session.load");
+    expect(logged.reference).toBe(result.reference);
+  });
+
+  it("falls back to UNKNOWN with a generic message", () => {
+    const result = mapError({ code: "XX000", message: "internal error: secret detail" }, "t");
+    expect(result.code).toBe("UNKNOWN");
+    expect(result.message).not.toContain("secret detail");
+    expect(result.reference).toBeDefined();
+  });
+
+  it("copes with non-object errors", () => {
+    expect(mapError("boom", "t").code).toBe("UNKNOWN");
+    expect(mapError(null, "t").code).toBe("UNKNOWN");
+    expect(mapError(undefined, "t").code).toBe("UNKNOWN");
+  });
+});

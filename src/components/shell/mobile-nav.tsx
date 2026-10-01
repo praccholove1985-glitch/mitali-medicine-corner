@@ -15,7 +15,7 @@ import { BrandMark, BrandName } from "@/components/shell/brand";
 import { NavList } from "@/components/shell/nav-list";
 
 /** Drawer navigation for phones. Focus is trapped and Esc closes it. */
-export function MobileNav() {
+export function MobileNav({ permissions }: { permissions: readonly string[] }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -40,7 +40,7 @@ export function MobileNav() {
           <BrandName />
         </Link>
         <div className="flex-1 overflow-y-auto pt-2">
-          <NavList variant="full" onNavigate={() => setOpen(false)} />
+          <NavList variant="full" permissions={permissions} onNavigate={() => setOpen(false)} />
         </div>
       </SheetContent>
     </Sheet>

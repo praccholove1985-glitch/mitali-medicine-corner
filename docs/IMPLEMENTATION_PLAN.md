@@ -10,7 +10,7 @@ tests work together.
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Architecture + setup | **In progress** — docs written; shadcn init and APK analysis pending (see Open items) |
-| 1 | DB + Auth + RLS | Not started |
+| 1 | DB + Auth + RLS | **Done in code and local tests**; not yet applied to a Supabase project, sign-in not yet exercised live |
 | 2 | App shell + design system | **Done** (built before Phase 1 at the owner's instruction; nav is not yet permission-aware) |
 | 3 | Medicine master + batches | Not started |
 | 4 | Inventory | Not started |
@@ -99,9 +99,9 @@ committed.
 3. **Supabase project** — which project (URL, region) to use; none is connected to
    this session. Without it, migrations can be written and tested against local
    PostgreSQL only, not applied.
-4. **DB test environment** — no Docker daemon in the sandbox, so `supabase start`
-   is unavailable. Options: install PostgreSQL locally with an `auth` schema stub
-   for RLS/RPC tests, and run the full Supabase stack in CI. Recommend both.
+4. **DB test environment** — resolved for local work: `scripts/db-test.sh` runs the
+   migrations and tests on a local PostgreSQL with an auth stub. Still to do: run
+   it in CI and try the migrations on a real Supabase branch.
 5. Owner decisions listed in PRODUCT_SPEC §7 and DATABASE §6 (units/strips,
    VAT-inclusive pricing, catalogue scope, expired-return rule, credit limits).
 6. SMS gateway and OCR provider choices (Bangladesh coverage, cost, Bangla
