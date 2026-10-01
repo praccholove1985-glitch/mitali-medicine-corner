@@ -71,7 +71,33 @@ Server components by default; client components only for interactive islands (PO
 tables with local UI state). No full-table loads; virtualised lists only where a
 page may exceed ~200 rendered rows. Debounce 200–250 ms with request abort.
 
-## 7. Verification
+## 7. Implementation status (Phase 2)
+
+Built and verified: tokens (light + dark, `data-theme` set by a pre-paint script,
+choice kept in `localStorage`), app shell (desktop sidebar, 64px tablet icon rail,
+phone drawer, sticky topbar, skip link), Button/Card/Input/Select/Textarea/Field/
+Badge/Alert/Skeleton/Table/Dialog/Sheet, and the app components PageHeader,
+StatCard, EmptyState, ErrorState, LoadingState/TableSkeleton, StatusBadge,
+ExpiryBadge, StockBadge, MoneyText (`domain/money.ts`) and DataTable.
+Route error boundary, loading UI and 404 exist. `/design-system` shows everything
+(development only; 404 in production).
+
+Notes:
+- **shadcn/ui CLI was blocked** (`ui.shadcn.com` 403), so the primitives are written
+  by hand in the shadcn style on `radix-ui`, `class-variance-authority` and
+  `tailwind-merge`. Running the CLI later may overwrite these files; review diffs.
+- Contrast: every token pair is checked by script (text pairs 4.5:1, focus ring and
+  input borders 3:1) in both themes. The input border is darker than the usual
+  shadcn default so form fields meet 3:1.
+- `ExpiryBadge` takes `daysToExpiry` from the server; the browser never decides
+  expiry. `StockBadge` takes the medicine's own reorder level.
+- Dashboard cards show "Not connected" with the phase that fills them; no figure is
+  displayed without a data source. The topbar search is disabled until Phase 3 and
+  the user box reads "Not signed in" until Phase 1.
+- Deferred: permission-aware navigation (Phase 1/14), branch switcher, command
+  palette, virtualised lists.
+
+## 8. Verification
 
 Each UI phase: measure in Chromium via Playwright at 1440, 1024, 768 and 390 px
 widths with reduced motion; check keyboard-only path; record screenshots in PR.
