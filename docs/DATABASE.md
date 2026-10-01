@@ -350,3 +350,11 @@ FEFO allocation), `quote_sale`, `complete_sale`, `get_invoice`, `list_sales`,
 `save_sale_draft`, `delete_sale_draft`, `save_customer`, `search_customers`,
 `customer_balance`. New permission `sale.dispense_rx`. Error codes PH050–PH057.
 Checks on `sales` enforce subtotal − discount = grand total and paid + due = grand total.
+
+## Phase 6 — Customer ledger (migration 13)
+
+`payments.client_request_id` (unique per branch) and `customer_ledger_entries.payment_id` link a
+received payment to its ledger entry. Functions: `receive_customer_payment` (error PH058 when nothing
+is due or the amount is more than is due; the hint carries the due amount), `list_customers`
+(search, filter, paging, `over_limit`), `due_summary`, `customer_summary`, `customer_statement`
+(branch-timezone date range, running balances, 1,000-entry cap with a `truncated` flag).

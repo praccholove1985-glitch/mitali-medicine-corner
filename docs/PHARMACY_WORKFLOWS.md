@@ -64,6 +64,20 @@ entries (allocation to oldest due first is informational; balance is the sum).
 Statement = ledger entries in a date range with opening/closing balance.
 SMS reminder uses the server-computed balance.
 
+### 3a. As built (Phase 6)
+- A customer's balance is the sum of their ledger. Positive = they owe; negative = they hold an
+  advance. Nothing types a balance in: sales on credit add to it, payments subtract.
+- **Receive payment**: pick how they paid and the amount (or "Pay all"); optional transaction id and
+  note. One call records the money and the ledger entry together, retried clicks record once.
+- **[RULE]** A payment can't be more than what is due. A customer who owes nothing can't "pay"; an
+  advance deposit is not part of v1.
+- Payments are allocated by balance, not to particular sales. Aging by sale is not shown.
+- **[RULE]** Deactivating a customer hides them from the till only; they stay in the list under
+  Inactive, keep their history, and can still pay what they owe.
+- **Statement**: choose a date range (branch timezone). It shows the balance brought forward, each
+  charge and payment with the balance after it, and the closing balance, and can be printed.
+  Ranges over 1,000 entries are shortened; the balances stay complete.
+
 ## 4. Sales return
 1. Find original sale; pick items and quantities (≤ sold − already returned).
 2. Server restores stock to the **original allocation batches**, reverses revenue,

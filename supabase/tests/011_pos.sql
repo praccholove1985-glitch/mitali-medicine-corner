@@ -405,7 +405,7 @@ select t.throws('delete from public.sale_items', 'PH010', 'sale lines cannot be 
 select t.throws('update public.payments set amount = 1', 'PH010', 'payments cannot be edited');
 select t.throws('delete from public.customer_ledger_entries', 'PH010', 'ledger entries cannot be deleted');
 select t.throws('truncate public.sales', '0A000', 'sales cannot be truncated (it is referenced by sale lines)');
-select t.throws('truncate public.payments', 'PH010', 'payments cannot be truncated');
+select t.throws('truncate public.payments', '0A000', 'payments cannot be truncated (the customer ledger references them)');
 select t.throws('truncate public.customer_ledger_entries', 'PH010', 'ledger entries cannot be truncated');
 select t.throws('insert into public.customer_ledger_entries (branch_id, customer_id, entry_type, amount) values (''aaaaaaaa-0000-0000-0000-000000000001'', ''c1000000-0000-0000-0000-000000000001'', ''SALE_DUE'', -5)',
   '23514', 'a SALE_DUE entry must be positive');

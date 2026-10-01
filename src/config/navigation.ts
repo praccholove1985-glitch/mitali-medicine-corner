@@ -73,8 +73,9 @@ export const navGroups: NavGroup[] = [
         anyOf: ["customer.view"],
         label: "Customers",
         icon: Users,
-        phase: 6,
-        summary: "Customer records, dues and statements.",
+        phase: null,
+        built: true,
+        summary: "Customer records, dues, payments and statements.",
         planned: [
           "Walk-in and registered customers, phone search",
           "Transaction-based ledger with payments and credits",

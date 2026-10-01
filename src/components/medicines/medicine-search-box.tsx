@@ -10,7 +10,15 @@ import { Input } from "@/components/ui/input";
  * result is shareable. Barcode scanners type the code and press Enter: Enter
  * searches immediately.
  */
-export function MedicineSearchBox({ initialQuery }: { initialQuery: string }) {
+export function MedicineSearchBox({
+  initialQuery,
+  label = "Search medicines by name, generic, brand, company, barcode or SKU",
+  placeholder = "Search name, generic, company, barcode or SKU",
+}: {
+  initialQuery: string;
+  label?: string;
+  placeholder?: string;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -54,8 +62,8 @@ export function MedicineSearchBox({ initialQuery }: { initialQuery: string }) {
         type="search"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        aria-label="Search medicines by name, generic, brand, company, barcode or SKU"
-        placeholder="Search name, generic, company, barcode or SKU"
+        aria-label={label}
+        placeholder={placeholder}
         className="pr-9 pl-9"
         autoComplete="off"
         spellCheck={false}

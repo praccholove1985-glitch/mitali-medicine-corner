@@ -176,3 +176,17 @@ drill schedule (Supabase PITR availability depends on plan).
 - Cashiers see only their own sales unless they hold `sale.view_all`; invoices carry no cost.
 - `/api/pos/*` handlers return JSON 401/503 rather than redirects and re-check the session.
 - Not yet exercised against a live Supabase project.
+
+## 15. As built — Phase 6
+
+- Payments are taken only by `receive_customer_payment`, which checks `customer.payment` in the
+  customer's own branch, locks the customer row so concurrent payments can't both pass the
+  "not more than due" check (tested with separate connections), and writes the payment, the ledger
+  entry and the audit row together.
+- The ledger and payments accept no direct writes and can't be edited or deleted; a mistake is
+  corrected by a new entry.
+- Balance, over-limit flag, running balances and statement totals are computed in the database.
+  The browser only formats them; its "still owed after this" line is a preview, re-checked on save.
+- Reading customers and statements needs `customer.view`; staff without it get nothing back.
+  A customer from another branch reads as not found.
+- Not yet exercised against a live Supabase project.
