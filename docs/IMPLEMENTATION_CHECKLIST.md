@@ -64,10 +64,17 @@ clean; affected UI inspected; docs updated.
 - [ ] Medicine image upload (Storage) — field exists, no upload UI yet
 
 ## Phase 4 — Inventory
-- [ ] Stock list, batch view, movements list (keyset paginated)
-- [ ] Adjustments / damage / expired / opening stock with reasons
-- [ ] Expiry buckets, low-stock view
-- [ ] Reconciliation view; drift test = 0
+- [x] Stock list by medicine (sellable vs expired, nearest expiry, batches, value at cost)
+- [x] Filters: in stock, low, out, expiring, expired, all; search; paging
+- [x] Summary cards; dashboard stock cards and expiry panel now use real data
+- [x] Stock history with keyset paging and filters (medicine, batch, type)
+- [x] Adjustments (count, correction, damage, expired) with mandatory reason and idempotency
+- [x] Expiry watch with 30/60/90-day buckets and write-off of expired stock
+- [x] Reconciliation function; drift test = 0 after every flow, and detects injected drift
+- [x] Opening stock (Phase 3 `create_batch`) shows in the history
+- [ ] Verify the screens against a live Supabase project
+- [ ] Stocktake mode (counted vs system, approval) — `stock.count` permission unused until then
+- [ ] Low-stock reorder suggestions per supplier (needs Phase 7 suppliers)
 
 ## Phase 5 — POS / Quick Sale
 - [ ] `complete_sale` RPC (atomic, idempotent)

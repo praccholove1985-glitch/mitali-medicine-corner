@@ -62,5 +62,40 @@ begin
   end loop;
 end $$;
 
+-- Inventory reads over the same data (as the manager, so cost is included).
+select t.owner();
+select t.login('a2000000-0000-0000-0000-000000000001');
+
+do $$
+declare
+  v_t timestamptz;
+  v_ms numeric;
+  v_n bigint;
+  v_budget constant numeric := 400;
+  r record;
+begin
+  for r in
+    select * from (values
+      ('stock list: in stock',   'select count(*) from public.list_stock(''aaaaaaaa-0000-0000-0000-000000000001'', '''', ''in_stock'', 90, 25, 0)'),
+      ('stock list: low',        'select count(*) from public.list_stock(''aaaaaaaa-0000-0000-0000-000000000001'', '''', ''low'', 90, 25, 0)'),
+      ('stock list: expiring',   'select count(*) from public.list_stock(''aaaaaaaa-0000-0000-0000-000000000001'', '''', ''expiring'', 90, 25, 0)'),
+      ('stock list: searched',   'select count(*) from public.list_stock(''aaaaaaaa-0000-0000-0000-000000000001'', ''omepra'', ''all'', 90, 25, 0)'),
+      ('inventory summary',      'select count(*) from public.inventory_summary(''aaaaaaaa-0000-0000-0000-000000000001'')'),
+      ('expiry buckets',         'select count(*) from public.expiry_buckets(''aaaaaaaa-0000-0000-0000-000000000001'')'),
+      ('expiry list',            'select count(*) from public.list_expiry(''aaaaaaaa-0000-0000-0000-000000000001'', ''all'', 25, 0)'),
+      ('movements: newest 50',   'select count(*) from public.list_stock_movements(''aaaaaaaa-0000-0000-0000-000000000001'')'),
+      ('reconciliation',         'select count(*) from public.stock_reconciliation(''aaaaaaaa-0000-0000-0000-000000000001'')')
+    ) q(label, stmt)
+  loop
+    v_t := clock_timestamp();
+    execute r.stmt into v_n;
+    v_ms := round(extract(epoch from clock_timestamp() - v_t) * 1000, 1);
+    raise notice 'perf: % -> % rows in % ms', rpad(r.label, 26), v_n, v_ms;
+    if v_ms > v_budget then
+      raise exception 'FAIL: % took % ms (budget % ms)', r.label, v_ms, v_budget;
+    end if;
+  end loop;
+end $$;
+
 select t.owner();
 rollback;

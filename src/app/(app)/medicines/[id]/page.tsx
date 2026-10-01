@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Boxes } from "lucide-react";
+import { randomUUID } from "node:crypto";
+import { ArrowLeft, Boxes, History } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +20,7 @@ import { MoneyText } from "@/components/common/money-text";
 import { PageHeader } from "@/components/common/page-header";
 import { ExpiryBadge, StatusBadge } from "@/components/common/status-badge";
 import { AddBatchDialog, EditBatchPricesDialog } from "@/components/medicines/batch-dialogs";
+import { AdjustStockDialog } from "@/components/inventory/adjust-stock-dialog";
 import { MedicineForm } from "@/components/medicines/medicine-form";
 import { formatDate, nextDay, todayInTimezone } from "@/lib/dates";
 import { getCatalogue, getDefaultCost, getMedicine, listBatches } from "@/server/db/medicines";
@@ -48,6 +50,7 @@ export default async function MedicineDetailPage({ params, searchParams }: Props
   const canSeeCost = can("purchase.view_cost");
   const canSeeStock = can("stock.view");
   const canAddBatch = can("batch.edit") && can("stock.adjust");
+  const canAdjust = can("stock.adjust");
 
   const [catalogue, batches, defaultCost] = await Promise.all([
     getCatalogue(),
@@ -126,6 +129,13 @@ export default async function MedicineDetailPage({ params, searchParams }: Props
                   {sellable !== null ? ` · ${sellable} unit${sellable === 1 ? "" : "s"} sellable` : ""}
                 </CardDescription>
               </div>
+              <span className="flex flex-wrap items-center gap-2">
+                <Button asChild variant="ghost" size="sm">
+                  <Link href={`/inventory/movements?medicine=${medicine.id}`}>
+                    <History aria-hidden />
+                    History
+                  </Link>
+                </Button>
               {canAddBatch && medicine.isActive ? (
                 <AddBatchDialog
                   medicineId={medicine.id}
@@ -135,6 +145,7 @@ export default async function MedicineDetailPage({ params, searchParams }: Props
                   defaultMrp={medicine.mrp}
                 />
               ) : null}
+              </span>
             </CardHeader>
             {batches.length === 0 ? (
               <EmptyState
@@ -155,7 +166,7 @@ export default async function MedicineDetailPage({ params, searchParams }: Props
                     <TableHead align="right">Qty</TableHead>
                     <TableHead align="right">Sale</TableHead>
                     {showCost ? <TableHead align="right">Cost</TableHead> : null}
-                    {canEditPrice ? <TableHead align="right"><span className="sr-only">Actions</span></TableHead> : null}
+                    {canEditPrice || canAdjust ? <TableHead align="right"><span className="sr-only">Actions</span></TableHead> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -173,15 +184,29 @@ export default async function MedicineDetailPage({ params, searchParams }: Props
                       {showCost ? (
                         <TableCell align="right"><MoneyText amount={b.purchasePrice} fractionDigits={2} /></TableCell>
                       ) : null}
-                      {canEditPrice ? (
+                      {canEditPrice || canAdjust ? (
                         <TableCell align="right">
-                          <EditBatchPricesDialog
-                            medicineId={medicine.id}
-                            batchId={b.id}
-                            batchNumber={b.batchNumber}
-                            salePrice={b.salePrice}
-                            mrp={b.mrp}
-                          />
+                          <span className="inline-flex items-center gap-0.5">
+                            {canAdjust ? (
+                              <AdjustStockDialog
+                                medicineId={medicine.id}
+                                batchId={b.id}
+                                batchNumber={b.batchNumber}
+                                quantity={b.quantity}
+                                isExpired={b.isExpired}
+                                requestId={randomUUID()}
+                              />
+                            ) : null}
+                            {canEditPrice ? (
+                              <EditBatchPricesDialog
+                                medicineId={medicine.id}
+                                batchId={b.id}
+                                batchNumber={b.batchNumber}
+                                salePrice={b.salePrice}
+                                mrp={b.mrp}
+                              />
+                            ) : null}
+                          </span>
                         </TableCell>
                       ) : null}
                     </TableRow>

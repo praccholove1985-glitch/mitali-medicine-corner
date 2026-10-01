@@ -152,3 +152,17 @@ drill schedule (Supabase PITR availability depends on plan).
   payload from the validated values only, and map every database error to a safe
   message; unique-violation text is inspected only to pick the field to highlight.
 - Not yet exercised against a live Supabase project (see Phase 1 caveats).
+
+## 13. As built — Phase 4
+
+- Stock can only be changed by `adjust_stock` and `write_off_expired`, which check
+  `stock.adjust` in the batch's own branch, lock the batch, and write the movement and the
+  new quantity together. Cross-branch attempts fail with a permission error.
+- Every manual change carries a reason, the actor and a timestamp, can't be edited or
+  deleted, and is also audited on the batch (old and new quantity).
+- Cost value is hidden from roles without `purchase.view_cost` in every inventory read
+  (the column is null, and the UI omits the column and the value card).
+- Retried form submits are idempotent: the server generates the request id when it
+  renders the dialog, so a double click or resubmit adjusts once.
+- A reconciliation check, restricted to `audit.view`, detects any drift between batch
+  quantities and their movements.

@@ -265,3 +265,54 @@ Tests: 202 checks in total (`scripts/db-test.sh`); `006_catalogue.sql`,
 `007_batches.sql` and `008_search_perf.sql` are new. Two defects were found by these
 tests while writing them (missing timestamps on a function-built row; a trigger
 referencing a column that doesn't exist on one of its tables) and fixed before commit.
+
+## 9. As built — Phase 4 (inventory)
+
+Migration `20261001000008_inventory_functions.sql`. No new tables; one new column
+(`stock_movements.client_request_id`, unique per branch when set) and three keyset
+indexes on movements.
+
+**Writes** (both permission `stock.adjust` in the batch's branch):
+- `adjust_stock(jsonb)` — one manual change on one batch. Types: `ADJUSTMENT`,
+  `CORRECTION`, `DAMAGE`, `EXPIRED`. A reason is mandatory; damage and expiry can only
+  remove; `EXPIRED` needs a batch that has expired (PH042); removing more than is on
+  hand is refused (PH041). The batch is locked, quantity and movement are written
+  together, and a repeated `client_request_id` returns the first result instead of
+  adjusting twice.
+- `write_off_expired(branch, batch_ids[], reason)` — one `EXPIRED` movement per batch,
+  all or nothing. Every id must be in the branch and expired; empty batches are skipped;
+  nothing to remove raises PH043. It returns the units written off.
+
+**Reads** (all need `stock.view`; value columns are null without `purchase.view_cost`):
+- `list_stock(branch, query, filter, days, limit, offset)` — one row per medicine.
+  *Sellable* counts unexpired batches only (a batch dated today is expired). Filters:
+  `all`, `in_stock`, `low` (reorder level set and sellable at or below it, so
+  never-stocked and out-of-stock medicines with a reorder level are included), `out`
+  (nothing sellable but stocked before — a medicine that never had a batch is **not**
+  "out"), `expiring` (nearest sellable batch within `days`), `expired` (holds expired
+  units). Retired medicines that still hold stock stay visible.
+- `inventory_summary(branch)` — headline counts and cost value; uses the same
+  population as `list_stock`, and a test checks the two agree.
+- `expiry_buckets(branch)` / `list_expiry(branch, bucket, ...)` — batches with stock by
+  window: expired (today or earlier), 1–30, 31–60, 61–90 days; day 91 is outside.
+- `list_stock_movements(...)` — newest first, filter by medicine, batch or type; page
+  with `p_before` = last id seen (keyset, so it stays fast as the table grows).
+- `stock_reconciliation(branch)` — batches whose quantity disagrees with their
+  movements; needs `audit.view`. Must always be empty; a row means something bypassed
+  the commit-time invariant and needs investigation, never a silent fix.
+
+**Stock value** is cost x quantity over every batch on hand, **including expired
+stock** (it is still an asset until written off); the expired part is reported
+separately. Money is summed in SQL as exact decimals.
+
+**Measured** (10,000 medicines, 20,000 batches, local PostgreSQL 16): stock list 2–55 ms,
+searched stock list 42 ms, summary 30 ms, expiry buckets 5 ms, expiry list 1 ms,
+movements page 1 ms, reconciliation 28 ms.
+
+**Deferred**: stocktake mode (count sheet vs system with approval) — `stock.count`
+exists but nothing uses it yet; transfers between branches.
+
+Tests: 276 checks in total; `009_inventory.sql` adds 74. Two mutation checks (leaking
+cost to a cashier; counting expired units as sellable) each make it fail. Writing the
+tests exposed one real defect: `inventory_summary` counted low stock from a different
+population than `list_stock`, missing never-stocked medicines with a reorder level.
