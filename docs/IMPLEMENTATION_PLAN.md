@@ -16,7 +16,7 @@ tests work together.
 | 4 | Inventory | **Done in code and local tests**; not applied to Supabase, screens not exercised against live data; stocktake mode deferred |
 | 5 | Quick Sale / POS | **Done in code and local tests** (DB tests, concurrency test, unit tests); not applied to Supabase; terminal UI not yet inspected in a browser |
 | 6 | Customers + ledger | **Done in code and local tests**; not applied to Supabase, pages not exercised against live data (dialogs and statement table checked in a browser at 1280 and 390 px) |
-| 7 | Purchases + suppliers | Not started |
+| 7 | Purchases + suppliers | **Done in code and local tests**; not applied to Supabase, pages not exercised against live data (the purchase form was checked in a browser at 1280 and 390 px against a mocked server) |
 | 8 | Returns | Not started |
 | 9 | Finance, expenses, profit | Not started |
 | 10 | Reports | Not started |

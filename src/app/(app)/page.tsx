@@ -31,6 +31,7 @@ import { ExpiryBadge, StatusBadge } from "@/components/common/status-badge";
 import { MoneyText } from "@/components/common/money-text";
 import { getInventorySummary, listExpiry, type ExpiryItem, type InventorySummary } from "@/server/db/inventory";
 import { getDueSummary, type DueSummary } from "@/server/db/customers";
+import { getSupplierDueSummary, type SupplierDueSummary } from "@/server/db/suppliers";
 import { ErrorState } from "@/components/common/error-state";
 import { formatDate } from "@/lib/dates";
 import { getSessionContext } from "@/server/session";
@@ -49,10 +50,10 @@ export const metadata: Metadata = { title: "Dashboard" };
 const kpis = [
   { label: "Today's sales", icon: Banknote, tone: "primary", note: "Available with reports (Phase 10)", anyOf: ["sale.create", "report.view", "report.view_own"] },
   { label: "Today's profit", icon: TrendingUp, tone: "success", note: "Available with reports (Phase 10)", anyOf: ["finance.view_profit"] },
-  { label: "Today's purchases", icon: Truck, tone: "primary", note: "Available after Phase 7", anyOf: ["purchase.view"] },
+  { label: "Today's purchases", icon: Truck, tone: "primary", note: "Available with reports (Phase 10)", anyOf: ["purchase.view"] },
   { label: "Stock value", icon: Boxes, tone: "neutral", note: "", anyOf: ["purchase.view_cost"] },
   { label: "Customer due", icon: Users, tone: "warning", note: "", anyOf: ["customer.view"] },
-  { label: "Supplier due", icon: Building2, tone: "warning", note: "Available after Phase 7", anyOf: ["supplier.view"] },
+  { label: "Supplier due", icon: Building2, tone: "warning", note: "", anyOf: ["supplier.view"] },
   { label: "Low stock", icon: PackageSearch, tone: "warning", note: "", anyOf: ["stock.view"] },
   { label: "Expiring soon", icon: CalendarClock, tone: "danger", note: "", anyOf: ["stock.view"] },
 ] as const;
@@ -60,7 +61,7 @@ const kpis = [
 const quickActions = [
   { href: "/pos", label: "New sale", icon: ReceiptText, phase: null, anyOf: ["sale.create"] },
   { href: "/medicines/new", label: "Add medicine", icon: Pill, phase: null, anyOf: ["medicine.edit"] },
-  { href: "/purchases", label: "Receive stock", icon: Truck, phase: 7, anyOf: ["purchase.create"] },
+  { href: "/purchases/new", label: "Receive stock", icon: Truck, phase: null, anyOf: ["purchase.create"] },
   { href: "/customers", label: "Record payment", icon: Wallet, phase: null, anyOf: ["customer.payment"] },
 ] as const;
 
@@ -90,6 +91,16 @@ export default async function DashboardPage() {
     }
   }
 
+  let supplierDue: SupplierDueSummary | null = null;
+  let supplierDueFailed = false;
+  if (session.status === "ready" && permissions.includes("supplier.view")) {
+    try {
+      supplierDue = await getSupplierDueSummary(session.branch.id);
+    } catch {
+      supplierDueFailed = true;
+    }
+  }
+
   let expiring: { items: ExpiryItem[]; total: number } | null = null;
   let expiringFailed = false;
   if (session.status === "ready" && permissions.includes("stock.view")) {
@@ -107,6 +118,14 @@ export default async function DashboardPage() {
         : {
             value: <MoneyText amount={due.totalDue} fractionDigits={2} />,
             caption: `${due.customersWithDue} customer${due.customersWithDue === 1 ? "" : "s"} owe`,
+          };
+    }
+    if (label === "Supplier due") {
+      return supplierDue === null
+        ? { value: null }
+        : {
+            value: <MoneyText amount={supplierDue.totalPayable} fractionDigits={2} />,
+            caption: `${supplierDue.suppliersWithDue} supplier${supplierDue.suppliersWithDue === 1 ? "" : "s"} owed`,
           };
     }
     if (!inventory) return { value: null };
@@ -133,7 +152,7 @@ export default async function DashboardPage() {
       />
 
       <Alert tone="info" title="Figures arrive with each module" className="mb-6">
-        Stock and customer-due figures are live. Sales totals, profit and purchases
+        Stock and the customer and supplier balances are live. Sales totals, profit and purchases
         are not summarised here yet, so those cards show the phase that will fill them.
       </Alert>
 
@@ -145,7 +164,8 @@ export default async function DashboardPage() {
           {visibleKpis.map((kpi) => {
             const { value, caption } = live(kpi.label);
             const stockCard = ["Low stock", "Expiring soon", "Stock value"].includes(kpi.label);
-            const dueCard = kpi.label === "Customer due";
+            const dueCard = kpi.label === "Customer due" || kpi.label === "Supplier due";
+            const dueFailedNow = kpi.label === "Customer due" ? dueFailed : supplierDueFailed;
             return (
               <StatCard
                 key={kpi.label}
@@ -158,7 +178,7 @@ export default async function DashboardPage() {
                   stockCard
                     ? inventoryFailed ? "Couldn't load, try refreshing" : undefined
                     : dueCard
-                      ? dueFailed ? "Couldn't load, try refreshing" : undefined
+                      ? dueFailedNow ? "Couldn't load, try refreshing" : undefined
                       : kpi.note
                 }
               />
