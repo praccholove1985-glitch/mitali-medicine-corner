@@ -36,9 +36,11 @@ admin_psql -c "create database $DB" >/dev/null
 echo "== stub"
 db_psql < "$ROOT/supabase/tests/stub/auth_stub.sql"
 
+# Each migration runs in one transaction, as the Supabase CLI applies it, so a
+# statement that cannot run inside a transaction fails here and not in production.
 for f in "$ROOT"/supabase/migrations/*.sql; do
   echo "== migration $(basename "$f")"
-  db_psql < "$f"
+  db_psql --single-transaction < "$f"
 done
 
 status=0

@@ -316,3 +316,27 @@ Tests: 276 checks in total; `009_inventory.sql` adds 74. Two mutation checks (le
 cost to a cashier; counting expired units as sellable) each make it fail. Writing the
 tests exposed one real defect: `inventory_summary` counted low stock from a different
 population than `list_stock`, missing never-stocked medicines with a reorder level.
+
+## 10. Phase 1 re-verification (foreign-key indexes and RLS matrix)
+
+A fresh audit of the Phase 1 foundation (policies, grants, function hardening) found no
+RLS or privilege defects. It did find index gaps, fixed in
+`20261001000009_foreign_key_indexes.sql`: `medicine_batches.medicine_id`,
+`role_permissions.permission`, `user_permission_overrides.permission`, and a full index on
+`branch_members.branch_id` (the existing one is partial, so it can't back the foreign key).
+`001_structure_guards.sql` now fails the build for any foreign key without an index that
+starts with its first column.
+
+`010_rls_matrix.sql` is generated from the catalogue, so new tables are covered
+automatically: every role (admin, manager, pharmacist, cashier, staff, other-branch admin,
+no membership, anon) x every table is refused INSERT, DELETE, TRUNCATE and UPDATE
+(416 attempts today); anon is refused reads on all 13 tables; and on every table with a
+`branch_id`, users of one branch see none of the other branch's rows (and the test checks
+each admin really can see their own rows, so a silently empty table can't pass).
+`scripts/db-test.sh` now applies each migration in one transaction, as the Supabase CLI
+does. Two mutation checks (granting INSERT on `medicines`; widening the batch read policy
+to any branch) are caught by several tests each.
+
+Known and accepted: colleagues in a shared branch can read each other's profile name and
+phone number (needed for "who did this" in the stock history). If phone numbers should be
+private, move them to a table readable only with `staff.view`.

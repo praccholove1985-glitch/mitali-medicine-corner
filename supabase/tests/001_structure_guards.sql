@@ -82,4 +82,18 @@ select t.ok(
     where n.nspname = 'public' and e.extname <> 'plpgsql'),
   'no extension is installed in the public schema');
 
+-- Every foreign key has an index that starts with its first column. (Composite keys
+-- are covered by any index leading with their first column; add a full composite
+-- index only when a query needs it.)
+select t.ok(
+  (select count(*) = 0
+     from pg_constraint c
+    where c.contype = 'f' and c.connamespace = 'public'::regnamespace
+      and not exists (
+        select 1 from pg_index i
+         where i.indrelid = c.conrelid
+           and i.indkey[0] = c.conkey[1]
+           and i.indpred is null)),
+  'every foreign key has a supporting index');
+
 rollback;
