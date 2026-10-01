@@ -156,10 +156,11 @@ branch is seeded; UI shows a branch switcher only when the user has >1 branch.
 | E2E | Playwright (Chromium preinstalled) | POS, purchase, return, permissions |
 
 **Environment constraint:** the build sandbox has no Docker daemon and blocks
-Supabase/shadcn hosts, so `supabase start` is unavailable. Plan: run DB tests
-against a locally installed PostgreSQL with a minimal `auth`/`storage` stub, or in
-CI (GitHub Actions with the Supabase CLI). Decision recorded in
-`IMPLEMENTATION_PLAN.md` open items.
+Supabase/shadcn hosts, so `supabase start` is unavailable. Decision (implemented
+in Phase 1): database tests run against a locally installed PostgreSQL 16 with a
+minimal test-only `auth` stub — `scripts/db-test.sh`. CI should run the same
+script against a service container, and migrations must still be tried on a real
+Supabase branch/scratch project before production.
 
 ## 12. Deployment
 

@@ -1,8 +1,16 @@
 import * as React from "react";
 import { Sidebar } from "@/components/shell/sidebar";
 import { Topbar } from "@/components/shell/topbar";
+import type { Role } from "@/types/session";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+type AppShellProps = {
+  children: React.ReactNode;
+  permissions: readonly string[];
+  branchName: string;
+  user: { name: string; email: string | null; role: Role };
+};
+
+export function AppShell({ children, permissions, branchName, user }: AppShellProps) {
   return (
     <div className="min-h-dvh">
       <a
@@ -11,9 +19,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         Skip to main content
       </a>
-      <Sidebar />
+      <Sidebar permissions={permissions} branchName={branchName} />
       <div className="flex min-h-dvh flex-col md:pl-16 lg:pl-64">
-        <Topbar />
+        <Topbar permissions={permissions} user={user} />
         <main
           id="main-content"
           tabIndex={-1}

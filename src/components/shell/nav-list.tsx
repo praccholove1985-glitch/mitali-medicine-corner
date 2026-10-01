@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { getNavGroups, isActive } from "@/config/navigation";
+import { isActive, visibleNavGroups } from "@/config/navigation";
 import { cn } from "@/lib/utils";
 
 type NavListProps = {
@@ -10,15 +10,17 @@ type NavListProps = {
   variant: "rail" | "full";
   /** Called after a link is chosen (closes the mobile drawer). */
   onNavigate?: () => void;
+  /** Effective permission codes; hides modules the user cannot use. */
+  permissions: readonly string[];
 };
 
-export function NavList({ variant, onNavigate }: NavListProps) {
+export function NavList({ variant, onNavigate, permissions }: NavListProps) {
   const pathname = usePathname();
   const rail = variant === "rail";
 
   return (
     <nav aria-label="Main" className="flex flex-col gap-5 px-2 pb-4">
-      {getNavGroups().map((group) => (
+      {visibleNavGroups(permissions).map((group) => (
         <div key={group.label}>
           <p
             className={cn(

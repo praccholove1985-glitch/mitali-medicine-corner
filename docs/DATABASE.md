@@ -1,7 +1,7 @@
 # Database Design (PostgreSQL / Supabase)
 
-Status: design only; no migration exists yet (Phase 1 creates them). Names are
-proposals — finalise when writing migrations and update this file.
+Status: Phase 1 is implemented (section 7 below). Sections 1-6 remain the design
+for later phases; names there are proposals until their migration exists.
 
 ## 1. Conventions
 
@@ -159,3 +159,59 @@ in a separate seed file.
 - Restocking a returned item whose batch has meanwhile expired.
 - Whether catalogue (medicines) is org-global or per-branch.
 - Pack/strip selling model (see PRODUCT_SPEC §7).
+
+## 7. As built — Phase 1 (identity, permissions, audit)
+
+Migrations in `supabase/migrations/`, forward-only:
+
+| File | Contents |
+|---|---|
+| `20261001000001_foundation_tables.sql` | `branches`, `profiles`, `permissions`, `role_permissions`, `branch_members`, `user_permission_overrides`, `audit_log` |
+| `20261001000002_access_functions.sql` | `my_branches()`, `has_permission()`, `my_permissions()`, `shares_branch_with()`, profile-on-signup trigger, audit triggers, append-only trigger, `write_audit()`, `bootstrap_pharmacy()` |
+| `20261001000003_rls_and_grants.sql` | RLS on every table, default-privilege lockdown, SELECT policies, the one narrow UPDATE |
+| `20261001000004_reference_data.sql` | permission catalogue (33 codes) and default role bundles |
+
+Decisions that differ from or refine the earlier design:
+- **Access comes only from an active `branch_members` row.** A profile (created
+  automatically at sign-up) grants nothing; a new account lands on a "no access
+  yet" screen.
+- **Role bundles are organisation-wide**, not per branch (`role_permissions` has no
+  `branch_id`). Per-user exceptions are per branch (`user_permission_overrides`).
+- **Authenticated users can only read**, plus update their own `full_name` and
+  `phone`. All other writes arrive as `SECURITY DEFINER` functions in later phases
+  (staff management: Phase 14) or via the service role.
+- **Audit**: role-bundle, membership, override, branch/settings and profile
+  active-flag changes are audited by trigger with old/new values. `audit_log`
+  rejects UPDATE, DELETE and TRUNCATE (error `PH010`) even for the owner. Seeding
+  the default bundles is deliberately not audited.
+- **Security-definer functions** all pin `search_path`, take no user id parameter
+  (the actor is always `auth.uid()`), and have `EXECUTE` revoked from `PUBLIC`.
+  Only the four access helpers are granted to `authenticated`.
+- `pgcrypto` is not installed: `gen_random_uuid()` is built in, and a `public`
+  extension would add anon-executable functions (caught by the guard test).
+
+### Operations
+
+Apply migrations with the Supabase CLI (`supabase db push`) or the SQL editor, in
+filename order, **to a project you have confirmed is the pharmacy project**.
+
+First administrator (cannot be created through the API because nobody has
+permission yet):
+1. Create the user in Supabase Auth (dashboard → Authentication → Add user).
+2. As the database owner or with the service role, run:
+   `select public.bootstrap_pharmacy('Mitali Medicine Corner', 'owner@example.com');`
+   It creates the branch and makes that user an ADMIN. It is idempotent.
+
+Rollback: Phase 1 only creates new objects. To undo, drop the seven tables and the
+functions listed above; there is no data to preserve until the first user is added.
+
+### Tests
+
+`scripts/db-test.sh` creates a throwaway database, applies a **test-only** stub of
+the Supabase auth schema (`supabase/tests/stub/auth_stub.sql`), every migration,
+then runs `supabase/tests/*.sql` (84 checks): structure guards (RLS on every table,
+anon has nothing, definer functions pin search_path), role/override matrix, branch
+isolation, inactive users, write denial, audit, sign-up and bootstrap, and the
+session queries. Set `DATABASE_ADMIN_URL` to run it in CI. The stub is not a
+substitute for running the migrations on real Supabase; do that on a branch or
+scratch project before production.

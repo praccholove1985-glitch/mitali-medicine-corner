@@ -26,7 +26,9 @@ import {
 import { PageHeader } from "@/components/common/page-header";
 import { StatCard } from "@/components/common/stat-card";
 import { EmptyState } from "@/components/common/empty-state";
+import { canSee } from "@/config/navigation";
 import { StatusBadge } from "@/components/common/status-badge";
+import { getSessionContext } from "@/server/session";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -35,25 +37,34 @@ export const metadata: Metadata = { title: "Dashboard" };
  * never show a plausible-looking number that has no source, so the cards say
  * which phase will fill them in. Phase 10 replaces these with real queries.
  */
+/**
+ * `anyOf` mirrors the database permission that will protect the real figure.
+ * Cost and profit cards are not even drawn for roles that may not see them.
+ */
 const kpis = [
-  { label: "Today's sales", icon: Banknote, tone: "primary", note: "Available after Phase 5" },
-  { label: "Today's profit", icon: TrendingUp, tone: "success", note: "Available after Phase 5" },
-  { label: "Today's purchases", icon: Truck, tone: "primary", note: "Available after Phase 7" },
-  { label: "Stock value", icon: Boxes, tone: "neutral", note: "Available after Phase 4" },
-  { label: "Customer due", icon: Users, tone: "warning", note: "Available after Phase 6" },
-  { label: "Supplier due", icon: Building2, tone: "warning", note: "Available after Phase 7" },
-  { label: "Low stock", icon: PackageSearch, tone: "warning", note: "Available after Phase 4" },
-  { label: "Expiring soon", icon: CalendarClock, tone: "danger", note: "Available after Phase 4" },
+  { label: "Today's sales", icon: Banknote, tone: "primary", note: "Available after Phase 5", anyOf: ["sale.create", "report.view", "report.view_own"] },
+  { label: "Today's profit", icon: TrendingUp, tone: "success", note: "Available after Phase 5", anyOf: ["finance.view_profit"] },
+  { label: "Today's purchases", icon: Truck, tone: "primary", note: "Available after Phase 7", anyOf: ["purchase.view"] },
+  { label: "Stock value", icon: Boxes, tone: "neutral", note: "Available after Phase 4", anyOf: ["purchase.view_cost"] },
+  { label: "Customer due", icon: Users, tone: "warning", note: "Available after Phase 6", anyOf: ["customer.view"] },
+  { label: "Supplier due", icon: Building2, tone: "warning", note: "Available after Phase 7", anyOf: ["supplier.view"] },
+  { label: "Low stock", icon: PackageSearch, tone: "warning", note: "Available after Phase 4", anyOf: ["stock.view"] },
+  { label: "Expiring soon", icon: CalendarClock, tone: "danger", note: "Available after Phase 4", anyOf: ["stock.view"] },
 ] as const;
 
 const quickActions = [
-  { href: "/pos", label: "New sale", icon: ReceiptText, phase: 5 },
-  { href: "/medicines", label: "Add medicine", icon: Pill, phase: 3 },
-  { href: "/purchases", label: "Receive stock", icon: Truck, phase: 7 },
-  { href: "/customers", label: "Record payment", icon: Wallet, phase: 6 },
+  { href: "/pos", label: "New sale", icon: ReceiptText, phase: 5, anyOf: ["sale.create"] },
+  { href: "/medicines", label: "Add medicine", icon: Pill, phase: 3, anyOf: ["medicine.edit"] },
+  { href: "/purchases", label: "Receive stock", icon: Truck, phase: 7, anyOf: ["purchase.create"] },
+  { href: "/customers", label: "Record payment", icon: Wallet, phase: 6, anyOf: ["customer.payment"] },
 ] as const;
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await getSessionContext();
+  const permissions = session.status === "ready" ? session.permissions : [];
+  const visibleKpis = kpis.filter((kpi) => canSee(kpi, permissions));
+  const visibleActions = quickActions.filter((action) => canSee(action, permissions));
+
   return (
     <>
       <PageHeader
@@ -61,9 +72,9 @@ export default function DashboardPage() {
         description="Sales, stock and money at a glance."
       />
 
-      <Alert tone="info" title="Interface preview" className="mb-6">
-        The database and sign-in are not connected yet, so nothing below is real
-        data. Each card shows the phase that will fill it.
+      <Alert tone="info" title="Figures arrive with each module" className="mb-6">
+        Sign-in and permissions are live. Sales, stock and money figures are
+        not recorded yet, so each card shows the phase that will fill it.
       </Alert>
 
       <section aria-labelledby="kpi-heading">
@@ -71,7 +82,7 @@ export default function DashboardPage() {
           Key figures
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {kpis.map((kpi) => (
+          {visibleKpis.map((kpi) => (
             <StatCard
               key={kpi.label}
               label={kpi.label}
@@ -112,8 +123,13 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {visibleActions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No shortcuts are available for your role.
+              </p>
+            ) : null}
             <ul className="grid grid-cols-2 gap-2">
-              {quickActions.map((action) => (
+              {visibleActions.map((action) => (
                 <li key={action.href}>
                   <Link
                     href={action.href}
