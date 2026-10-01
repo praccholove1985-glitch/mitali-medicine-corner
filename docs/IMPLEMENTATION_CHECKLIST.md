@@ -28,10 +28,17 @@ clean; affected UI inspected; docs updated.
 - [ ] RLS tests: each role, each table, cross-branch denial
 
 ## Phase 2 — Shell and design system
-- [ ] Layout (sidebar, topbar, mobile drawer), permission-aware nav
-- [ ] DataTable, MoneyText, StatusBadge, ExpiryBadge, EmptyState, ErrorState
-- [ ] Error mapping (`server/errors.ts`) with tests
-- [ ] Checked at 1440/1024/768/390 px, keyboard path, axe
+- [x] Layout (sidebar, tablet rail, topbar, mobile drawer)
+- [ ] Permission-aware nav (needs Phase 1 permissions)
+- [x] Tokens, light + dark theme, typography (Geist + Noto Sans Bengali)
+- [x] Button, Card, Input/Select/Textarea, Field, Badge, Alert, Table, Dialog, Sheet, Skeleton
+- [x] DataTable (loading / error / empty / data), PageHeader, StatCard, MoneyText, Status/Expiry/Stock badges
+- [x] Route error boundary, loading UI, 404
+- [x] Money formatter with tests (`domain/money.ts`)
+- [ ] Error mapping (`server/errors.ts`) — moves to Phase 1 with the database error codes
+- [x] Checked at 1440/1024/768/390 px, light and dark, reduced motion
+- [x] Keyboard: skip link, drawer, dialog trap and focus return, inline form errors
+- [ ] axe automated scan (axe not installed)
 
 ## Phase 3 — Medicine master and batches
 - [ ] Companies, categories, subcategories

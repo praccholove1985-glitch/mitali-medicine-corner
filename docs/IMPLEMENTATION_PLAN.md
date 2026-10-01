@@ -11,7 +11,7 @@ tests work together.
 |---|---|---|
 | 0 | Architecture + setup | **In progress** — docs written; shadcn init and APK analysis pending (see Open items) |
 | 1 | DB + Auth + RLS | Not started |
-| 2 | App shell + design system | Not started |
+| 2 | App shell + design system | **Done** (built before Phase 1 at the owner's instruction; nav is not yet permission-aware) |
 | 3 | Medicine master + batches | Not started |
 | 4 | Inventory | Not started |
 | 5 | Quick Sale / POS | Not started |
