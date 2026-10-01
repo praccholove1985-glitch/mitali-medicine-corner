@@ -123,6 +123,12 @@ begin
       join pg_attribute a on a.attrelid = c.oid and a.attname = 'branch_id' and not a.attisdropped
      where n.nspname = 'public' and c.relkind = 'r' order by c.relname
   loop
+    -- A table nobody can read at all (e.g. internal counters) is trivially isolated.
+    if not has_column_privilege('authenticated', ('public.' || quote_ident(tbl.relname))::regclass, 'branch_id', 'select') then
+      checked := checked + 1;
+      continue;
+    end if;
+
     -- Admin A may see A's rows, never B's.
     perform t.login('a1000000-0000-0000-0000-000000000001');
     execute format('select count(*) from public.%I where branch_id = %L', tbl.relname, 'bbbbbbbb-0000-0000-0000-000000000001') into n;

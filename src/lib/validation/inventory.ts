@@ -1,7 +1,7 @@
 import { z } from "zod";
+import { uuidLike } from "@/lib/validation/common";
 import { MANUAL_MOVEMENT_TYPES } from "@/lib/inventory-payload";
 
-const uuidLike = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid id.");
 
 export const adjustStockSchema = z.object({
   batch_id: uuidLike,

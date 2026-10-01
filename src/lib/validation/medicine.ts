@@ -1,9 +1,7 @@
 import { z } from "zod";
 import { amountToUnits, isValidAmount } from "@/domain/money";
 
-/** Any 8-4-4-4-12 hex id. Zod's own uuid() rejects some ids Postgres will accept. */
-const uuidLike = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid id.");
-
+import { uuidLike } from "@/lib/validation/common";
 const optionalText = (max: number) =>
   z
     .string()

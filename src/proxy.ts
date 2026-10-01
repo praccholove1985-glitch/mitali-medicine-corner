@@ -13,8 +13,11 @@ export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const env = getSupabaseEnv();
 
+  const isApi = pathname.startsWith("/api/");
+
   if (!env) {
     if (pathname === "/setup") return NextResponse.next();
+    if (isApi) return apiError(503, "UNAVAILABLE", "The database connection is not configured.");
     return NextResponse.redirect(new URL("/setup", request.url));
   }
 
@@ -23,6 +26,10 @@ export async function proxy(request: NextRequest) {
   }
 
   const { response, user } = await updateSession(request, env);
+
+  if (!user && isApi) {
+    return apiError(401, "UNAUTHENTICATED", "Your session has ended. Sign in again.");
+  }
 
   if (!user && !PUBLIC_PATHS.has(pathname)) {
     const loginUrl = new URL("/login", request.url);
@@ -35,6 +42,11 @@ export async function proxy(request: NextRequest) {
   }
 
   return response;
+}
+
+/** API callers get JSON, not an HTML redirect to the login page. */
+function apiError(status: number, code: string, message: string) {
+  return NextResponse.json({ error: { code, message } }, { status, headers: { "Cache-Control": "no-store" } });
 }
 
 /** A redirect must carry any cookies the session refresh just set. */

@@ -340,3 +340,13 @@ to any branch) are caught by several tests each.
 Known and accepted: colleagues in a shared branch can read each other's profile name and
 phone number (needed for "who did this" in the stock history). If phone numbers should be
 private, move them to a table readable only with `staff.view`.
+
+## Phase 5 — Sales (migrations 10–12)
+
+Tables: `customers`, `customer_ledger_entries` (append-only), `invoice_counters`,
+`sales`, `sale_items`, `sale_item_allocations` (per-batch cost snapshot), `payments`,
+`sale_drafts`. Functions: `pos_search`, `pos_batches`, `sale_plan` (shared pricing and
+FEFO allocation), `quote_sale`, `complete_sale`, `get_invoice`, `list_sales`,
+`save_sale_draft`, `delete_sale_draft`, `save_customer`, `search_customers`,
+`customer_balance`. New permission `sale.dispense_rx`. Error codes PH050–PH057.
+Checks on `sales` enforce subtotal − discount = grand total and paid + due = grand total.

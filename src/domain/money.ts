@@ -73,3 +73,23 @@ export function amountToUnits(value: string): bigint | null {
   const fraction = (match[2] ?? "").padEnd(4, "0");
   return BigInt(whole + fraction);
 }
+
+const PAISA_PATTERN = /^(\d{1,10})(?:\.(\d{1,2}))?$/;
+
+/**
+ * Exact amount in paisa (hundredths of a taka) for something a person types into a
+ * payment box: at most 2 decimals. null when invalid. Used only to show "remaining"
+ * while splitting a payment; the database validates the real thing.
+ */
+export function parsePaisa(value: string): bigint | null {
+  const match = PAISA_PATTERN.exec(value.trim());
+  if (!match) return null;
+  return BigInt((match[1] ?? "0") + (match[2] ?? "").padEnd(2, "0"));
+}
+
+/** Paisa back to a decimal string with 2 decimals: 1250n -> "12.50". Negative allowed. */
+export function formatPaisa(paisa: bigint): string {
+  const negative = paisa < BigInt(0);
+  const digits = (negative ? -paisa : paisa).toString().padStart(3, "0");
+  return `${negative ? "-" : ""}${digits.slice(0, -2)}.${digits.slice(-2)}`;
+}

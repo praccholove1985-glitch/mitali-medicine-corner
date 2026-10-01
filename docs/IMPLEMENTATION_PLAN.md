@@ -14,7 +14,7 @@ tests work together.
 | 2 | App shell + design system | **Done** (built before Phase 1 at the owner's instruction; nav is not yet permission-aware) |
 | 3 | Medicine master + batches | **Done in code and local tests**; not applied to Supabase, screens not exercised against live data |
 | 4 | Inventory | **Done in code and local tests**; not applied to Supabase, screens not exercised against live data; stocktake mode deferred |
-| 5 | Quick Sale / POS | Not started |
+| 5 | Quick Sale / POS | **Done in code and local tests** (DB tests, concurrency test, unit tests); not applied to Supabase; terminal UI not yet inspected in a browser |
 | 6 | Customers + ledger | Not started |
 | 7 | Purchases + suppliers | Not started |
 | 8 | Returns | Not started |

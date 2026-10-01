@@ -86,4 +86,17 @@ describe("mapError", () => {
     expect(mapError({ code: "PH042" }, "t").code).toBe("INVALID");
     expect(mapError({ code: "PH043" }, "t").message).toMatch(/no expired stock/i);
   });
+
+  it("has a plain message for every point-of-sale rule", () => {
+    const expected: Record<string, string> = {
+      PH001: "CONFLICT", PH044: "INVALID", PH050: "INVALID", PH051: "INVALID", PH052: "FORBIDDEN",
+      PH053: "FORBIDDEN", PH054: "FORBIDDEN", PH055: "INVALID", PH056: "CONFLICT", PH057: "INVALID",
+    };
+    for (const [code, appCode] of Object.entries(expected)) {
+      const mapped = mapError({ code, message: "raw detail 12.50 Napa", hint: '{"medicine_id":"x"}' }, "t");
+      expect(mapped.code, code).toBe(appCode);
+      expect(mapped.message, code).not.toMatch(/raw detail|12\.50|Napa|medicine_id/);
+      expect(mapped.reference, code).toBeUndefined();
+    }
+  });
 });

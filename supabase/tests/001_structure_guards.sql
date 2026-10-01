@@ -93,7 +93,13 @@ select t.ok(
         select 1 from pg_index i
          where i.indrelid = c.conrelid
            and i.indkey[0] = c.conkey[1]
-           and i.indpred is null)),
+           -- A full index, or a partial one that only leaves out NULLs of that column
+           -- (a foreign-key lookup `col = x` implies `col IS NOT NULL`, so it can use it).
+           and (i.indpred is null
+                or pg_get_expr(i.indpred, i.indrelid) = format('(%s IS NOT NULL)',
+                     (select a.attname from pg_attribute a
+                       where a.attrelid = c.conrelid and a.attnum = c.conkey[1])))
+      )),
   'every foreign key has a supporting index');
 
 rollback;

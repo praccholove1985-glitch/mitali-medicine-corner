@@ -166,3 +166,13 @@ drill schedule (Supabase PITR availability depends on plan).
   renders the dialog, so a double click or resubmit adjusts once.
 - A reconciliation check, restricted to `audit.view`, detects any drift between batch
   quantities and their movements.
+
+## 14. As built — Phase 5
+
+- `complete_sale` re-prices, re-allocates and locks stock server-side; the browser sends
+  only medicine ids, quantities, an optional batch choice, discount and payment amounts.
+- Sales, items, allocations, payments and ledger rows accept no direct writes and are
+  immutable; cost and profit columns are not selectable by `authenticated`.
+- Cashiers see only their own sales unless they hold `sale.view_all`; invoices carry no cost.
+- `/api/pos/*` handlers return JSON 401/503 rather than redirects and re-check the session.
+- Not yet exercised against a live Supabase project.
