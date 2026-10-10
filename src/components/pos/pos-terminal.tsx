@@ -116,6 +116,8 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
         barcode: m.barcode,
         sku: m.sku,
         mrp: m.mrp,
+        salePrice: m.salePrice,
+        batchCount: m.batchCount,
       },
     });
     setAnnounce("Added " + m.name + ".");
@@ -434,6 +436,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
                               {[line.barcode ? `Barcode: ${line.barcode}` : null, line.sku ? `SKU: ${line.sku}` : null].filter(Boolean).join(" · ")}
                             </p>
                           ) : null}
+                          {line.salePrice ? <p className="text-xs text-muted-foreground">{line.batchCount && line.batchCount > 1 ? "First-expiry batch price" : "Unit price"} <MoneyText amount={line.salePrice} fractionDigits={2} className="inline" /></p> : null}
                           {line.mrp ? <p className="text-xs text-muted-foreground">MRP <MoneyText amount={line.mrp} fractionDigits={2} className="inline" /></p> : null}
                           {line.batchLabel ? <p className="text-xs text-muted-foreground">Batch {line.batchLabel}</p> : null}
                           {priced && priced.batches > 1 ? (
