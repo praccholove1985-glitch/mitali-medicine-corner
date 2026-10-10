@@ -274,7 +274,7 @@ export default async function DashboardPage() {
             {metrics.map((metric) => <MetricCard key={metric.label} {...metric} locale={locale} />)}
           </div>
         ) : (
-          <Card><CardContent className="py-6"><EmptyState icon={ShieldAlert} title={t(locale, "dashboard.balanceRestricted")} description={t(locale, "dashboard.balanceRestrictedDesc")} /></CardContent></Card>
+          <Card><CardContent className="py-6"><EmptyState icon={ShieldAlert} title={locale === "bn" ? "ড্যাশবোর্ডের কোনো তথ্য পাওয়া যায়নি" : "No dashboard figures available"} description={locale === "bn" ? "দোকানের প্রশাসককে আপনার ভূমিকার অনুমতি যাচাই করতে বলুন।" : "Ask the shop administrator to check your role permissions."} /></CardContent></Card>
         )}
       </section>
 
@@ -391,7 +391,7 @@ function ExpiryRow({ item, locale }: { item: ExpiryItem; locale: "en" | "bn" }) 
         <Link href={`/medicines/${item.medicineId}`} className="block truncate text-sm font-semibold text-foreground hover:text-primary-text hover:underline">{item.medicineName}{item.strength ? ` · ${item.strength}` : ""}</Link>
         <p className="mt-1 truncate text-xs text-muted-foreground">{locale === "bn" ? "ব্যাচ" : "Batch"} {item.batchNumber} · {item.quantity.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD")} {locale === "bn" ? "ইউনিট" : "units"} · {t(locale, "dashboard.expires")} {formatDate(item.expiryDate)}</p>
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-1.5"><ExpiryBadge daysToExpiry={item.daysToExpiry} /><span className="text-[11px] text-muted-foreground">{item.daysToExpiry <= 0 ? "Remove from sale" : `${item.daysToExpiry} days`}</span></div>
+      <div className="flex shrink-0 flex-col items-end gap-1.5"><ExpiryBadge daysToExpiry={item.daysToExpiry} locale={locale} /><span className="text-[11px] text-muted-foreground">{item.daysToExpiry <= 0 ? "Remove from sale" : `${item.daysToExpiry} days`}</span></div>
     </div>
   );
 }
