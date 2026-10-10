@@ -390,7 +390,7 @@ function LineEditor({
     }
   }
 
-    const started = med !== null && (line.batch !== "" || line.qty !== "" || line.price !== "");
+  const started = med !== null && (line.batch !== "" || line.qty !== "" || line.price !== "");
 
   return (
     <Card className="flex flex-col gap-3 p-4" aria-label={`Line ${index + 1}`}>
@@ -434,14 +434,14 @@ function LineEditor({
               )}
               emptyText="No medicine matches."
             />
-            <div className="flex justify-start">
-              <MobileBarcodeScanner
-                locale={locale}
-                label={locale === "bn" ? "মোবাইল দিয়ে পণ্য স্ক্যান" : "Scan item with phone"}
-                onDetected={handleScannedBarcode}
-              />
-            </div>
           </Field>
+          <div className="mt-2 flex justify-start">
+            <MobileBarcodeScanner
+              locale={locale}
+              label={locale === "bn" ? "মোবাইল দিয়ে পণ্য স্ক্যান" : "Scan item with phone"}
+              onDetected={handleScannedBarcode}
+            />
+          </div>
           {scanMessage ? (
             <Alert tone={scanMessage.kind === "not-found" ? "warning" : "danger"} title={scanMessage.kind === "not-found" ? (locale === "bn" ? "বারকোড ক্যাটালগে নেই" : "Barcode not in catalogue") : (locale === "bn" ? "পণ্য খোঁজা যায়নি" : "Couldn't look up this barcode")}>
               <p>{scanMessage.kind === "not-found"
