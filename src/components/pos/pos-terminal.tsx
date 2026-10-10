@@ -51,6 +51,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [announce, setAnnounce] = useState("");
+  const [scanError, setScanError] = useState<string | null>(null);
   const [payOpen, setPayOpen] = useState(false);
   const [payKey, setPayKey] = useState(0);
   const [saleError, setSaleError] = useState<ActionFailure | null>(null);
@@ -82,8 +83,21 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
     return () => window.removeEventListener("keydown", onKey);
   }, [canPay]);
 
+  function normalizeScannerValue(value: string): string {
+    return value
+      .trim()
+      .replace(/[\u0000-\u001f]+/g, "")
+      .replace(/^\](?:C1|d2|Q3)/i, "");
+  }
+
+  function looksLikeScannedCode(value: string): boolean {
+    return value.length >= 6 && value.length <= 64 && !/\s/.test(value) &&
+      /^[a-z0-9._/-]+$/i.test(value) && /\d/.test(value);
+  }
+
   function addMedicine(m: PosMedicine) {
     if (m.sellableQty <= 0) {
+      setScanError(null);
       setAnnounce(`${m.name} is out of stock.`);
       return;
     }
@@ -108,12 +122,44 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
       setActive((i) => Math.max(i - 1, 0));
     } else if (event.key === "Escape") {
       setQuery("");
+      setScanError(null);
     } else if (event.key === "Enter") {
       event.preventDefault();
-      if (query.trim() === "") return;
-      // A scanner types the code and presses Enter before the debounce fires: ask now.
-      const items = search.status === "ready" ? search.items : await searchNow();
-      const exact = items.find((i) => i.exactMatch);
+      const rawQuery = query.trim();
+      if (rawQuery === "") return;
+
+      const scannedCode = normalizeScannerValue(rawQuery);
+      const isScannedCode = looksLikeScannedCode(scannedCode);
+
+      // Scanner input can include a symbology prefix. For barcode/SKU-shaped input,
+      // always query the exact normalized value and never add a fuzzy first result.
+      const items = isScannedCode
+        ? await searchNow(scannedCode)
+        : search.status === "ready"
+          ? search.items
+          : await searchNow();
+
+      const exact = items.find((item) =>
+        item.exactMatch ||
+        (isScannedCode && (
+          item.barcode?.trim().toLowerCase() === scannedCode.toLowerCase() ||
+          item.sku?.trim().toLowerCase() === scannedCode.toLowerCase()
+        ))
+      );
+
+      if (isScannedCode) {
+        setQuery(scannedCode);
+        if (exact) {
+          addMedicine(exact);
+          return;
+        }
+        setScanError(
+          \`No exact match for barcode/SKU "\${scannedCode}". Nothing was added. Save this barcode in the correct medicine's catalogue record first.\`,
+        );
+        setAnnounce("Barcode not linked to a medicine. No item was added.");
+        return;
+      }
+
       const chosen = exact ?? items[Math.min(active, items.length - 1)];
       if (chosen) addMedicine(chosen);
       else setAnnounce("No medicine found.");
@@ -194,6 +240,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
+              setScanError(null);
               setActive(0);
             }}
             onKeyDown={onSearchKeyDown}
@@ -221,6 +268,8 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
         <p className="sr-only" role="status" aria-live="polite">
           {announce}
         </p>
+
+        {scanError ? <Alert tone="warning" title="Barcode not linked">{scanError}</Alert> : null}
 
         <div className="mt-3">
           {query.trim() === "" ? (
@@ -271,6 +320,9 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
                         <span className="truncate text-xs text-muted-foreground">
                           {[m.genericName, m.dosageForm, m.companyName].filter(Boolean).join(" · ") || "—"}
                         </span>
+                        <span className="truncate text-[11px] text-muted-foreground">
+                          {[m.barcode ? `Barcode: ${m.barcode}` : null, m.sku ? `SKU: ${m.sku}` : null].filter(Boolean).join(" · ")}
+                        </span>
                       </span>
                       <span className="flex shrink-0 flex-col items-end gap-1">
                         {out ? (
@@ -285,6 +337,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
                             ) : (
                               <span className="text-sm text-muted-foreground">Price not set</span>
                             )}
+                            {m.mrp !== null ? <span className="text-[11px] text-muted-foreground">MRP <MoneyText amount={m.mrp} fractionDigits={2} className="inline" /></span> : null}
                             <span className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span className="tabular">{m.sellableQty} in stock</span>
                               {m.batchCount > 1 ? <span>{m.batchCount} batches</span> : null}
@@ -360,6 +413,17 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
                             {strength ? <span className="text-sm font-normal text-muted-foreground">{strength}</span> : null}
                             {line.prescriptionRequired || priced?.prescriptionRequired ? <Badge tone="info">Rx</Badge> : null}
                           </p>
+                          {line.genericName || line.dosageForm || line.companyName ? (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {[line.genericName, line.dosageForm, line.companyName].filter(Boolean).join(" · ")}
+                            </p>
+                          ) : null}
+                          {line.barcode || line.sku ? (
+                            <p className="mt-0.5 break-all text-[11px] text-muted-foreground">
+                              {[line.barcode ? `Barcode: ${line.barcode}` : null, line.sku ? `SKU: ${line.sku}` : null].filter(Boolean).join(" · ")}
+                            </p>
+                          ) : null}
+                          {line.mrp ? <p className="text-xs text-muted-foreground">MRP <MoneyText amount={line.mrp} fractionDigits={2} className="inline" /></p> : null}
                           {line.batchLabel ? <p className="text-xs text-muted-foreground">Batch {line.batchLabel}</p> : null}
                           {priced && priced.batches > 1 ? (
                             <p className="text-xs text-muted-foreground">Taken from {priced.batches} batches</p>
@@ -370,7 +434,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
                             <>
                               <MoneyText amount={priced.lineTotal} fractionDigits={2} className="text-base font-semibold" />
                               {priced.discount !== "0" && Number(priced.discount) > 0 ? (
-                                <p className="text-xs text-success-text">Saves ৳{priced.discount}</p>
+                                <p className="text-xs text-success-text">Saves <MoneyText amount={priced.discount} fractionDigits={2} className="inline" /></p>
                               ) : null}
                             </>
                           ) : (
