@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,8 @@ import { Card } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { MoneyText } from "@/components/common/money-text";
+import { MobileBarcodeScanner } from "@/components/common/mobile-barcode-scanner";
+import type { Locale } from "@/lib/i18n";
 import { LookupPicker } from "@/components/purchases/lookup-picker";
 import { useLookup, usePurchaseQuote } from "@/components/purchases/hooks";
 import { formatMoney, formatPaisa, parsePaisa } from "@/domain/money";
@@ -70,6 +73,7 @@ function lineProblem(l: Line): { input: PurchaseLineInput | null; problem: strin
 }
 
 type Props = {
+  locale: Locale;
   /** Generated on the server per page render: a double click or retry reuses it, so it records once. */
   requestId: string;
   today: string;
@@ -77,7 +81,7 @@ type Props = {
   createPurchase: (input: unknown) => Promise<CreatePurchaseResult>;
 };
 
-export function PurchaseForm({ requestId, today, initialSupplier, createPurchase }: Props) {
+export function PurchaseForm({ requestId, today, initialSupplier, createPurchase, locale }: Props) {
   const router = useRouter();
   const counter = useRef(1);
   const nextKey = (prefix: string) => `${prefix}${++counter.current}`;
@@ -216,6 +220,7 @@ export function PurchaseForm({ requestId, today, initialSupplier, createPurchase
             canRemove={lines.length > 1}
             onChange={(patch) => patchLine(l.key, patch)}
             onRemove={() => setLines((prev) => prev.filter((x) => x.key !== l.key))}
+            locale={locale}
           />
         ))}
         <div>
@@ -333,7 +338,7 @@ export function PurchaseForm({ requestId, today, initialSupplier, createPurchase
 }
 
 function LineEditor({
-  index, line, problem, quoted, canRemove, onChange, onRemove,
+  index, line, problem, quoted, canRemove, onChange, onRemove, locale,
 }: {
   index: number;
   line: Line;
@@ -342,11 +347,50 @@ function LineEditor({
   canRemove: boolean;
   onChange: (patch: Partial<Line>) => void;
   onRemove: () => void;
+  locale: Locale;
 }) {
   const id = (name: string) => `line-${line.key}-${name}`;
   const meds = useLookup("/api/purchases/medicines", line.medQuery, pickMedicines, line.medicine === null);
   const med = line.medicine;
-  const started = med !== null && (line.batch !== "" || line.qty !== "" || line.price !== "");
+  const [scanMessage, setScanMessage] = useState<{ code: string; kind: "not-found" | "failed" } | null>(null);
+  async function handleScannedBarcode(rawCode: string) {
+    const code = rawCode.trim().slice(0, 64);
+    if (!code) return;
+    setScanMessage(null);
+    try {
+      const response = await fetch(`/api/purchases/medicines?q=${encodeURIComponent(code)}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("lookup failed");
+      const body = (await response.json()) as { medicines?: PurchaseMedicine[] };
+      const match = (body.medicines ?? []).find((item) =>
+        item.barcode?.trim().toLowerCase() === code.toLowerCase() ||
+        item.sku?.trim().toLowerCase() === code.toLowerCase()
+      );
+      if (!match) {
+        setScanMessage({ code, kind: "not-found" });
+        onChange({ medicine: null, medQuery: code });
+        return;
+      }
+      onChange({
+        medicine: match,
+        medQuery: "",
+        batch: "",
+        expiry: "",
+        qty: "",
+        free: "",
+        price: "",
+        dtype: "NONE",
+        dvalue: "",
+        tax: "",
+        sale: match.defaultSalePrice ?? "",
+        mrp: match.mrp ?? "",
+      });
+    } catch {
+      setScanMessage({ code, kind: "failed" });
+      onChange({ medicine: null, medQuery: code });
+    }
+  }
+
+    const started = med !== null && (line.batch !== "" || line.qty !== "" || line.price !== "");
 
   return (
     <Card className="flex flex-col gap-3 p-4" aria-label={`Line ${index + 1}`}>
@@ -363,19 +407,53 @@ function LineEditor({
               failed={meds.failed}
               query={line.medQuery}
               onQuery={(q) => onChange({ medQuery: q })}
-              onSelect={(m) => onChange({ medicine: m })}
+              onSelect={(m) => {
+                setScanMessage(null);
+                onChange({
+                  medicine: m,
+                  batch: "",
+                  expiry: "",
+                  qty: "",
+                  free: "",
+                  price: "",
+                  dtype: "NONE",
+                  dvalue: "",
+                  tax: "",
+                  sale: m.defaultSalePrice ?? "",
+                  mrp: m.mrp ?? "",
+                });
+              }}
               getKey={(m) => m.id}
               renderItem={(m) => (
                 <span className="flex flex-col">
                   <span className="font-medium">
                     {m.name} {m.strength ?? ""}
                   </span>
-                  <span className="text-xs text-muted-foreground">{[m.genericName, m.dosageForm, m.companyName].filter(Boolean).join(" · ")}</span>
+                  <span className="text-xs text-muted-foreground">{[m.genericName, m.brandName, m.dosageForm, m.companyName].filter(Boolean).join(" · ")}</span>
                 </span>
               )}
               emptyText="No medicine matches."
             />
+            <div className="flex justify-start">
+              <MobileBarcodeScanner
+                locale={locale}
+                label={locale === "bn" ? "মোবাইল দিয়ে পণ্য স্ক্যান" : "Scan item with phone"}
+                onDetected={handleScannedBarcode}
+              />
+            </div>
           </Field>
+          {scanMessage ? (
+            <Alert tone={scanMessage.kind === "not-found" ? "warning" : "danger"} title={scanMessage.kind === "not-found" ? (locale === "bn" ? "বারকোড ক্যাটালগে নেই" : "Barcode not in catalogue") : (locale === "bn" ? "পণ্য খোঁজা যায়নি" : "Couldn't look up this barcode")}>
+              <p>{scanMessage.kind === "not-found"
+                ? (locale === "bn" ? `বারকোড ${scanMessage.code}-এর কোনো সঠিক পণ্য পাওয়া যায়নি। আগে পণ্যটি ক্যাটালগে যোগ করুন।` : `No exact product match for ${scanMessage.code}. Add the product to the catalogue first.`)
+                : (locale === "bn" ? "সংযোগ পরীক্ষা করে আবার স্ক্যান করুন বা বারকোডটি লিখে খুঁজুন।" : "Check your connection and scan again, or type the barcode to search.")}</p>
+              {scanMessage.kind === "not-found" ? (
+                <Link href={`/medicines/new?barcode=${encodeURIComponent(scanMessage.code)}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-sm font-semibold text-primary-text underline underline-offset-2">
+                  {locale === "bn" ? "বারকোডসহ নতুন পণ্য যোগ করুন" : "Add product with this barcode"}
+                </Link>
+              ) : null}
+            </Alert>
+          ) : null}
         </div>
         {canRemove ? (
           <Button type="button" variant="ghost" size="icon" className="mt-6" onClick={onRemove}>
