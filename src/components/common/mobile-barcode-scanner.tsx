@@ -75,6 +75,8 @@ export function MobileBarcodeScanner({
   const [status, setStatus] = useState<"loading" | "scanning" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const onDetectedRef = useRef(onDetected);
+  useEffect(() => { onDetectedRef.current = onDetected; }, [onDetected]);
 
   const text = (en: string, bn: string) => locale === "bn" ? bn : en;
 
@@ -115,7 +117,7 @@ export function MobileBarcodeScanner({
             const code = result?.getText().trim();
             if (!code) return;
             detected = true;
-            onDetected(code);
+            onDetectedRef.current(code);
             setOpen(false);
           },
         );
@@ -147,7 +149,7 @@ export function MobileBarcodeScanner({
       cancelled = true;
       controls?.stop();
     };
-  }, [open, onDetected]);
+  }, [open, locale]);
 
   return (
     <>
