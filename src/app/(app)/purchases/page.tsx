@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLocale } from "@/lib/locale";
 import Link from "next/link";
 import { Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -105,7 +106,8 @@ export default async function PurchasesPage({ searchParams }: Props) {
       ) : null}
       <div className="border-t">
         <DataTable
-          caption="Purchases, newest first"
+          locale={locale}
+            caption="Purchases, newest first"
           columns={columns}
           rows={items}
           getRowId={(p) => p.id}
