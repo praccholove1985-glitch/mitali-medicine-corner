@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useId, useReducer, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Minus, PackageX, Plus, ScanBarcode, Search, ShoppingCart, Trash2, X } from "lucide-react";
@@ -285,7 +286,17 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
           {announce}
         </p>
 
-        {scanError ? <Alert tone="warning" title="Barcode not linked">{scanError}</Alert> : null}
+        {scanError ? (
+          <Alert tone="warning" title="Barcode not linked">
+            <p>{scanError}</p>
+            <Link
+              href={`/medicines/new?barcode=${encodeURIComponent(query)}`}
+              className="mt-2 inline-flex text-sm font-semibold text-primary-text underline underline-offset-2"
+            >
+              Add this barcode to the catalogue
+            </Link>
+          </Alert>
+        ) : null}
 
         <div className="mt-3">
           {query.trim() === "" ? (
