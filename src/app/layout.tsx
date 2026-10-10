@@ -30,16 +30,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b1220" },
-  ],
+  themeColor: "#f5f7fb",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    // data-theme is set by ThemeScript before hydration, so the attribute may
-    // differ from the server markup; suppressHydrationWarning covers that one tag.
+    // data-theme is set to light before first paint.
     <html
       lang="en"
       suppressHydrationWarning
