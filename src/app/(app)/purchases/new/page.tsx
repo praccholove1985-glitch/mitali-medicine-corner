@@ -6,6 +6,7 @@ import { todayInTimezone } from "@/lib/dates";
 import { getSupplierSummary } from "@/server/db/suppliers";
 import { requireSession } from "@/server/session";
 import { createPurchaseAction } from "@/app/(app)/purchases/actions";
+import { getLocale } from "@/lib/locale";
 
 export const metadata: Metadata = { title: "New purchase" };
 
@@ -13,7 +14,7 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function NewPurchasePage({ searchParams }: Props) {
-  const session = await requireSession();
+  const [session, locale] = await Promise.all([requireSession(), getLocale()]);
   if (!session.permissions.includes("purchase.create")) return <Forbidden section="recording purchases" />;
 
   const params = await searchParams;
@@ -32,6 +33,7 @@ export default async function NewPurchasePage({ searchParams }: Props) {
 
   return (
     <PurchaseForm
+      locale={locale}
       requestId={randomUUID()}
       today={todayInTimezone(session.branch.timezone)}
       initialSupplier={initialSupplier}
