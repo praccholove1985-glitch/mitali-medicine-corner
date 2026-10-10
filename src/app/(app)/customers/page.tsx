@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLocale } from "@/lib/locale";
 import Link from "next/link";
 import { AlertTriangle, HandCoins, UserRound, Users, Wallet } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -156,6 +157,7 @@ export default async function CustomersPage({ searchParams }: Props) {
         </div>
         <div className="border-t">
           <DataTable
+            locale={locale}
             caption="Customers and what they owe"
             columns={columns}
             rows={items}
