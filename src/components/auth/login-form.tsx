@@ -33,7 +33,7 @@ export function LoginForm({ next }: { next: string }) {
           type="text"
           autoComplete="username"
           inputMode="email"
-          placeholder="Email or 01753414080"
+          placeholder="Email or Mobile No"
           autoCapitalize="none"
           spellCheck={false}
           defaultValue={state.identifier}
