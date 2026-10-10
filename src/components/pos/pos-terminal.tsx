@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/common/empty-state";
 import { MobileBarcodeScanner } from "@/components/common/mobile-barcode-scanner";
+import { MobileCameraOCR } from "@/components/common/mobile-camera-ocr";
+import { productSearchTextFromLabel } from "@/lib/camera-ocr-parsers";
 import { MoneyText } from "@/components/common/money-text";
 import { BatchPickerDialog } from "@/components/pos/batch-picker-dialog";
 import { CustomerDialog } from "@/components/pos/customer-dialog";
@@ -233,6 +235,24 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
     setAnnounce(locale === "bn" ? "বারকোডটি কোনো পণ্যের সঙ্গে যুক্ত নয়। কিছু যোগ করা হয়নি।" : "Barcode not linked to a product. No item was added.");
   }
 
+  function handleProductLabelText(rawText: string) {
+    const searchText = productSearchTextFromLabel(rawText);
+    setScanError(null);
+    setLastAdded(null);
+    setActive(0);
+    if (!searchText) {
+      setAnnounce(locale === "bn"
+        ? "পণ্যের লেখা থেকে নাম শনাক্ত করা যায়নি। আরেকটি পরিষ্কার ছবি তুলুন বা নাম লিখে খুঁজুন।"
+        : "Could not identify a product name from the photo. Try a clearer photo or type the name.");
+      return;
+    }
+    // OCR is a search hint, not an identity check: show results for the cashier to confirm.
+    setQuery(searchText);
+    setAnnounce(locale === "bn"
+      ? "প্যাকেটের লেখা পড়া হয়েছে। তালিকা থেকে সঠিক পণ্যটি বেছে নিন।"
+      : "Product text read. Choose the matching catalogue item from the results.");
+  }
+
   function openPayment() {
     requestId.current = crypto.randomUUID();
     setPayKey((k) => k + 1);
@@ -294,8 +314,14 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
       {/* ---------- Search ---------- */}
       <section aria-label="Find medicines" className="min-w-0">
-        <div className="mb-2 flex justify-end">
+        <div className="mb-2 flex flex-wrap justify-end gap-2">
           <MobileBarcodeScanner locale={locale} onDetected={handleCameraBarcode} />
+          <MobileCameraOCR
+            mode="product"
+            locale={locale}
+            label={locale === "bn" ? "নাম/শক্তি স্ক্যান" : "Scan name / strength"}
+            onExtracted={handleProductLabelText}
+          />
         </div>
         <div className="relative">
           <ScanBarcode className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
