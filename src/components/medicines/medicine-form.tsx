@@ -22,6 +22,7 @@ type MedicineFormProps = {
   canEditPrice: boolean;
   /** Show and edit the purchase price (needs price.edit and purchase.view_cost). */
   purchasePrice: { editable: true; value: string | null } | null;
+  locale?: Locale;
 };
 
 const initialState: FormState = {};
@@ -31,7 +32,9 @@ const UNITS = ["pcs", "strip", "bottle", "vial", "tube", "sachet", "box"];
 export function MedicineForm({ medicine, initialBarcode = "", catalogue, canEditPrice, purchasePrice, locale = "en" }: MedicineFormProps) {
   const [state, formAction, pending] = useActionState(saveMedicineAction, initialState);
   const [categoryId, setCategoryId] = useState(state.values?.category_id ?? medicine?.categoryId ?? "");
-  const barcodeRef = useRef<HTMLInputElement>(null);\n  const formRef = useRef<HTMLFormElement>(null);\n  const [labelDraft, setLabelDraft] = useState<{ rawText: string; details: ProductLabelSuggestions } | null>(null);\n  const [labelNotice, setLabelNotice] = useState<string | null>(null);
+  const barcodeRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [labelDraft, setLabelDraft] = useState<{ rawText: string; details: ProductLabelSuggestions } | null>(null);\n  const [labelNotice, setLabelNotice] = useState<string | null>(null);
 
   // What the user typed wins over the saved record after a failed submit.
   const v = (key: string, saved: string | number | null | undefined) =>
