@@ -22,16 +22,21 @@ export function LoginForm({ next }: { next: string }) {
         </Alert>
       ) : null}
 
-      <Field label="Phone number" htmlFor="phone" error={state.fieldErrors?.phone} required>
+      <Field
+        label="Email or phone number"
+        htmlFor="identifier"
+        error={state.fieldErrors?.identifier}
+        required
+      >
         <Input
-          name="phone"
-          type="tel"
+          name="identifier"
+          type="text"
           autoComplete="username"
-          inputMode="tel"
-          placeholder="01753414080"
+          inputMode="email"
+          placeholder="Email or 01753414080"
           autoCapitalize="none"
           spellCheck={false}
-          defaultValue={state.phone}
+          defaultValue={state.identifier}
           autoFocus
         />
       </Field>
