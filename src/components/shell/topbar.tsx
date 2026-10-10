@@ -39,7 +39,7 @@ export function Topbar({ permissions, user, locale }: TopbarProps) {
 
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
         <LanguageToggle locale={locale} />
-        <ConnectionIndicator />
+        <ConnectionIndicator locale={locale} />
         {canSell ? (
           <>
             <Button asChild size="md" className="hidden sm:inline-flex">
