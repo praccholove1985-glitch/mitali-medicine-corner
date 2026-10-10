@@ -12,6 +12,7 @@ import type { Catalogue, MedicineDetail } from "@/server/db/medicines";
 
 type MedicineFormProps = {
   medicine: MedicineDetail | null;
+  initialBarcode?: string;
   catalogue: Catalogue;
   /** Show and edit the sale price (needs price.edit). */
   canEditPrice: boolean;
@@ -23,7 +24,7 @@ const initialState: FormState = {};
 const DOSAGE_FORMS = ["Tablet", "Capsule", "Syrup", "Suspension", "Injection", "Cream", "Ointment", "Drops", "Inhaler", "Sachet", "Suppository"];
 const UNITS = ["pcs", "strip", "bottle", "vial", "tube", "sachet", "box"];
 
-export function MedicineForm({ medicine, catalogue, canEditPrice, purchasePrice }: MedicineFormProps) {
+export function MedicineForm({ medicine, initialBarcode = "", catalogue, canEditPrice, purchasePrice }: MedicineFormProps) {
   const [state, formAction, pending] = useActionState(saveMedicineAction, initialState);
   const [categoryId, setCategoryId] = useState(state.values?.category_id ?? medicine?.categoryId ?? "");
 
@@ -141,7 +142,7 @@ export function MedicineForm({ medicine, catalogue, canEditPrice, purchasePrice 
             <Input name="pack_size" inputMode="numeric" defaultValue={v("pack_size", medicine?.packSize ?? 1)} />
           </Field>
           <Field label="Barcode" htmlFor="barcode" error={err.barcode} hint="Click here and scan the pack">
-            <Input name="barcode" inputMode="numeric" defaultValue={v("barcode", medicine?.barcode)} autoComplete="off" spellCheck={false} />
+            <Input name="barcode" inputMode="numeric" defaultValue={v("barcode", medicine?.barcode ?? initialBarcode)} autoComplete="off" spellCheck={false} />
           </Field>
           <Field label="SKU" htmlFor="sku" error={err.sku} hint="Your own short code (optional)">
             <Input name="sku" defaultValue={v("sku", medicine?.sku)} autoComplete="off" spellCheck={false} />
