@@ -43,6 +43,8 @@ import {
 import { getDueSummary, type DueSummary } from "@/server/db/customers";
 import { getSupplierDueSummary, type SupplierDueSummary } from "@/server/db/suppliers";
 import { getSessionContext } from "@/server/session";
+import { getLocale } from "@/lib/locale";
+import { t } from "@/lib/i18n";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -55,6 +57,7 @@ function MetricCard({
   icon: Icon,
   tone = "blue",
   unavailable = false,
+  locale,
 }: {
   label: string;
   value: React.ReactNode;
@@ -62,6 +65,7 @@ function MetricCard({
   icon: typeof Banknote;
   tone?: MetricTone;
   unavailable?: boolean;
+  locale: "en" | "bn";
 }) {
   const toneClasses: Record<MetricTone, string> = {
     blue: "bg-primary-soft text-primary-text",
@@ -84,7 +88,7 @@ function MetricCard({
           {value}
         </p>
         <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          {unavailable ? <span className="mr-1.5 inline-flex align-middle"><StatusBadge tone="neutral">Not connected</StatusBadge></span> : null}
+          {unavailable ? <span className="mr-1.5 inline-flex align-middle"><StatusBadge tone="neutral">{t(locale, "dashboard.notConnected")}</StatusBadge></span> : null}
           {caption}
         </p>
       </div>
@@ -121,7 +125,7 @@ function QuickAction({
 }
 
 export default async function DashboardPage() {
-  const session = await getSessionContext();
+  const [session, locale] = await Promise.all([getSessionContext(), getLocale()]);
   const ready = session.status === "ready";
   const permissions = ready ? session.permissions : [];
 
@@ -237,37 +241,37 @@ export default async function DashboardPage() {
   return (
     <>
       <PageHeader
-        eyebrow="PHARMACY OPERATIONS"
-        title="Dashboard"
-        description="A practical overview of stock, expiry and outstanding balances."
+        eyebrow={t(locale, "dashboard.eyebrow")}
+        title={t(locale, "dashboard.title")}
+        description={t(locale, "dashboard.description")}
         actions={
           <>
-            {permissions.includes("stock.view") ? <Link href="/inventory" className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-3.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted"><Boxes className="size-4" aria-hidden /> Stock overview</Link> : null}
-            {permissions.includes("sale.create") ? <Link href="/pos" className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover"><Plus className="size-4" aria-hidden /> New sale</Link> : null}
+            {permissions.includes("stock.view") ? <Link href="/inventory" className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-3.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted"><Boxes className="size-4" aria-hidden /> {t(locale, "dashboard.stockOverview")}</Link> : null}
+            {permissions.includes("sale.create") ? <Link href="/pos" className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover"><Plus className="size-4" aria-hidden /> {t(locale, "dashboard.newSale")}</Link> : null}
           </>
         }
       />
 
       {!ready ? (
-        <Alert tone="warning" title="Dashboard access is not ready">
-          Your session does not currently have an active pharmacy branch. Sign out and sign in again, or ask an administrator to check staff access.
+        <Alert tone="warning" title={t(locale, "dashboard.accessTitle")}>
+          {t(locale, "dashboard.accessText")}
         </Alert>
       ) : null}
 
       {inventoryFailed || dueFailed || supplierDueFailed || expiringFailed ? (
-        <Alert tone="warning" title="Some live figures could not be loaded" className="mb-5">
-          The rest of the dashboard remains available. Refresh to retry the affected inventory or balance summaries.
+        <Alert tone="warning" title={t(locale, "dashboard.loadTitle")} className="mb-5">
+          {t(locale, "dashboard.loadText")}
         </Alert>
       ) : null}
 
       <section aria-labelledby="operations-metrics" className="mt-1">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 id="operations-metrics" className="text-sm font-semibold text-foreground">Today at a glance</h2>
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><span className="size-1.5 rounded-full bg-success" aria-hidden /> Figures from your pharmacy records</span>
+          <h2 id="operations-metrics" className="text-sm font-semibold text-foreground">{t(locale, "dashboard.atAGlance")}</h2>
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><span className="size-1.5 rounded-full bg-success" aria-hidden /> {t(locale, "dashboard.liveRecords")}</span>
         </div>
         {metrics.length ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {metrics.map((metric) => <MetricCard key={metric.label} {...metric} />)}
+            {metrics.map((metric) => <MetricCard key={metric.label} {...metric} locale={locale} />)}
           </div>
         ) : (
           <Card><CardContent className="py-6"><EmptyState icon={ShieldAlert} title="No dashboard figures available" description="Ask the shop administrator to check your role permissions." /></CardContent></Card>
@@ -278,41 +282,41 @@ export default async function DashboardPage() {
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-border/80 bg-muted/35 sm:px-5">
             <div>
-              <div className="flex items-center gap-2"><CardTitle>Stock needing attention</CardTitle>{attentionCount !== null ? <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning-text">{attentionCount} flags</span> : null}</div>
-              <CardDescription className="mt-1">Review low quantities and expiry risk before the next sale.</CardDescription>
+              <div className="flex items-center gap-2"><CardTitle>{t(locale, "dashboard.stockAttention")}</CardTitle>{attentionCount !== null ? <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning-text">{attentionCount} flags</span> : null}</div>
+              <CardDescription className="mt-1">{t(locale, "dashboard.stockAttentionDesc")}</CardDescription>
             </div>
-            {permissions.includes("stock.view") ? <Link href="/inventory" className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary-text hover:underline">Open inventory <ArrowRight className="size-3.5" aria-hidden /></Link> : null}
+            {permissions.includes("stock.view") ? <Link href="/inventory" className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary-text hover:underline">{t(locale, "dashboard.openInventory")} <ArrowRight className="size-3.5" aria-hidden /></Link> : null}
           </CardHeader>
           <CardContent className="p-4 sm:p-5">
             {!permissions.includes("stock.view") ? (
-              <EmptyState icon={ShieldAlert} title="Stock access is restricted" description="Ask an administrator if you need to review stock and expiry." />
+              <EmptyState icon={ShieldAlert} title={t(locale, "dashboard.stockRestricted")} description={t(locale, "dashboard.stockRestrictedDesc")} />
             ) : inventoryFailed ? (
-              <ErrorState title="Inventory summary unavailable" message="Refresh the page to try again." />
+              <ErrorState title={t(locale, "dashboard.stockUnavailable")} message={t(locale, "dashboard.refreshRetry")} />
             ) : inventory && inventory.lowStockCount + inventory.outOfStockCount + inventory.expiring30Batches + inventory.expiredBatches === 0 ? (
               <div className="flex items-start gap-3 rounded-xl border border-success/20 bg-success-soft/50 p-4">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success-soft text-success-text"><PackageCheck className="size-5" aria-hidden /></span>
-                <div><p className="text-sm font-semibold text-success-text">No urgent stock flags</p><p className="mt-1 text-xs leading-5 text-muted-foreground">There are no low/out-of-stock items or expiry flags in the current summary.</p></div>
+                <div><p className="text-sm font-semibold text-success-text">{t(locale, "dashboard.noUrgentFlags")}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{t(locale, "dashboard.noUrgentFlagsDesc")}</p></div>
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
                 <Link href="/inventory?filter=low" className="group rounded-xl border border-warning/25 bg-warning-soft/45 p-4 transition-colors hover:bg-warning-soft">
                   <div className="flex items-center justify-between gap-3"><span className="flex size-9 items-center justify-center rounded-lg bg-warning-soft text-warning-text"><PackageSearch className="size-5" aria-hidden /></span><ArrowRight className="size-4 text-warning-text transition-transform group-hover:translate-x-0.5" aria-hidden /></div>
                   <p className="mt-4 text-2xl font-semibold tracking-tight text-foreground">{inventory?.lowStockCount ?? "—"}</p>
-                  <p className="mt-1 text-sm font-semibold">Low-stock medicines</p>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">At or below each medicine's reorder level.</p>
+                  <p className="mt-1 text-sm font-semibold">{t(locale, "dashboard.lowStockMedicines")}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{t(locale, "dashboard.atReorder")}</p>
                 </Link>
                 <Link href="/inventory?filter=expired" className="group rounded-xl border border-danger/20 bg-danger-soft/45 p-4 transition-colors hover:bg-danger-soft">
                   <div className="flex items-center justify-between gap-3"><span className="flex size-9 items-center justify-center rounded-lg bg-danger-soft text-danger-text"><AlertTriangle className="size-5" aria-hidden /></span><ArrowRight className="size-4 text-danger-text transition-transform group-hover:translate-x-0.5" aria-hidden /></div>
                   <p className="mt-4 text-2xl font-semibold tracking-tight text-foreground">{inventory?.expiredBatches ?? "—"}</p>
-                  <p className="mt-1 text-sm font-semibold">Expired batches</p>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">Keep expired stock out of the saleable inventory.</p>
+                  <p className="mt-1 text-sm font-semibold">{t(locale, "dashboard.expiredBatchTitle")}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{t(locale, "dashboard.expiredBatchDesc")}</p>
                 </Link>
               </div>
             )}
             {permissions.includes("stock.view") && inventory ? (
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/80 px-3.5 py-3">
-                <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground"><CalendarClock className="size-4 shrink-0 text-warning-text" aria-hidden /><span><strong className="font-semibold text-foreground">Expiry within 30 days:</strong> {inventory.expiring30Batches} batches</span></div>
-                <Link href="/inventory/expiry" className="text-xs font-semibold text-primary-text hover:underline">Review expiry watch</Link>
+                <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground"><CalendarClock className="size-4 shrink-0 text-warning-text" aria-hidden /><span><strong className="font-semibold text-foreground">{t(locale, "dashboard.expiryWithin")}:</strong> {inventory.expiring30Batches} batches</span></div>
+                <Link href="/inventory/expiry" className="text-xs font-semibold text-primary-text hover:underline">{t(locale, "dashboard.reviewExpiry")}</Link>
               </div>
             ) : null}
           </CardContent>
@@ -320,10 +324,10 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <div><CardTitle>Quick actions</CardTitle><CardDescription className="mt-1">Common pharmacy tasks, one click away.</CardDescription></div>
+            <div><CardTitle>{t(locale, "dashboard.quickActions")}</CardTitle><CardDescription className="mt-1">{t(locale, "dashboard.quickActionsDesc")}</CardDescription></div>
           </CardHeader>
           <CardContent className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-            {actions.length ? actions.map((action) => <QuickAction key={action.href} {...action} />) : <p className="text-sm text-muted-foreground">No shortcuts are available for your role.</p>}
+            {actions.length ? actions.map((action) => <QuickAction key={action.href} {...action} />) : <p className="text-sm text-muted-foreground">{locale === "bn" ? "আপনার ভূমিকার জন্য কোনো শর্টকাট নেই।" : "No shortcuts are available for your role."}</p>}
           </CardContent>
         </Card>
       </section>
@@ -331,40 +335,40 @@ export default async function DashboardPage() {
       <section className="mt-4 grid items-start gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(330px,0.8fr)]">
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-border/80">
-            <div><CardTitle>Expiry watch</CardTitle><CardDescription className="mt-1">Nearest expiry first, including expired batches with remaining stock.</CardDescription></div>
-            {permissions.includes("stock.view") ? <Link href="/inventory/expiry" className="inline-flex items-center gap-1 text-xs font-semibold text-primary-text hover:underline">View all <ArrowRight className="size-3.5" aria-hidden /></Link> : null}
+            <div><CardTitle>{t(locale, "dashboard.expiryTitle")}</CardTitle><CardDescription className="mt-1">{t(locale, "dashboard.expiryDesc")}</CardDescription></div>
+            {permissions.includes("stock.view") ? <Link href="/inventory/expiry" className="inline-flex items-center gap-1 text-xs font-semibold text-primary-text hover:underline">{t(locale, "dashboard.viewAll")} <ArrowRight className="size-3.5" aria-hidden /></Link> : null}
           </CardHeader>
           <CardContent className="p-0">
             {!permissions.includes("stock.view") ? (
-              <div className="p-5"><EmptyState icon={ShieldAlert} title="Not available for your role" description="Ask the owner if you need expiry monitoring access." /></div>
+              <div className="p-5"><EmptyState icon={ShieldAlert} title={t(locale, "dashboard.stockRestricted")} description={t(locale, "dashboard.stockRestrictedDesc")} /></div>
             ) : expiringFailed ? (
-              <div className="p-5"><ErrorState title="Couldn't load expiry data" message="Refresh the page to try again." /></div>
+              <div className="p-5"><ErrorState title={t(locale, "dashboard.stockUnavailable")} message={t(locale, "dashboard.refreshRetry")} /></div>
             ) : expiring && expiring.items.length > 0 ? (
               <div className="divide-y divide-border/80">
-                {expiring.items.map((item) => <ExpiryRow key={item.batchId} item={item} />)}
+                {expiring.items.map((item) => <ExpiryRow key={item.batchId} item={item} locale={locale} />)}
               </div>
             ) : (
-              <div className="p-5"><EmptyState icon={CalendarClock} title="No expiry flags to show" description="Batches with remaining stock will appear here when they are expired or approaching expiry." /></div>
+              <div className="p-5"><EmptyState icon={CalendarClock} title={t(locale, "dashboard.noExpiryFlags")} description="{t(locale, "dashboard.noExpiryFlagsDesc")}" /></div>
             )}
-            {expiring && expiring.total > expiring.items.length ? <div className="border-t border-border/80 px-5 py-3"><Link href="/inventory/expiry" className="text-xs font-semibold text-primary-text hover:underline">See all {expiring.total} matching batches</Link></div> : null}
+            {expiring && expiring.total > expiring.items.length ? <div className="border-t border-border/80 px-5 py-3"><Link href="/inventory/expiry" className="text-xs font-semibold text-primary-text hover:underline">{t(locale, "dashboard.viewAll")} {expiring.total} {t(locale, "dashboard.matchingBatches")}</Link></div> : null}
           </CardContent>
         </Card>
 
         <div className="grid gap-4">
           <Card>
-            <CardHeader><div><CardTitle>Balances to follow up</CardTitle><CardDescription className="mt-1">Keep customer credit and supplier dues visible.</CardDescription></div></CardHeader>
+            <CardHeader><div><CardTitle>{t(locale, "dashboard.balances")}</CardTitle><CardDescription className="mt-1">{t(locale, "dashboard.balancesDesc")}</CardDescription></div></CardHeader>
             <CardContent className="space-y-3">
               {permissions.includes("customer.view") ? <BalanceRow href="/customers" label="Customer due" detail={due ? `${due.customersWithDue} customers with balance` : dueFailed ? "Summary unavailable" : "Ledger summary"} icon={Users} amount={due ? <MoneyText amount={due.totalDue} fractionDigits={2} /> : "—"} /> : null}
               {permissions.includes("supplier.view") ? <BalanceRow href="/suppliers" label="Supplier payable" detail={supplierDue ? `${supplierDue.suppliersWithDue} suppliers with balance` : supplierDueFailed ? "Summary unavailable" : "Ledger summary"} icon={Building2} amount={supplierDue ? <MoneyText amount={supplierDue.totalPayable} fractionDigits={2} /> : "—"} /> : null}
-              {!permissions.includes("customer.view") && !permissions.includes("supplier.view") ? <EmptyState icon={ShieldAlert} title="Balance details are restricted" description="Ask the owner if you need customer or supplier ledger access." /> : null}
+              {!permissions.includes("customer.view") && !permissions.includes("supplier.view") ? <EmptyState icon={ShieldAlert} title={t(locale, "dashboard.balanceRestricted")} description={t(locale, "dashboard.balanceRestrictedDesc")} /> : null}
             </CardContent>
           </Card>
           <Card>
-            <CardHeader><div><CardTitle>Sales & reporting</CardTitle><CardDescription className="mt-1">Daily totals and profit should always come from recorded transactions.</CardDescription></div><StatusBadge tone="neutral">Phase 10</StatusBadge></CardHeader>
+            <CardHeader><div><CardTitle>{t(locale, "dashboard.salesReporting")}</CardTitle><CardDescription className="mt-1">{t(locale, "dashboard.reportingDesc")}</CardDescription></div><StatusBadge tone="neutral">{t(locale, "dashboard.phase10")}</StatusBadge></CardHeader>
             <CardContent>
               <div className="flex items-start gap-3 rounded-xl border border-dashed border-border bg-muted/35 p-4">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-text"><ClipboardList className="size-5" aria-hidden /></span>
-                <div><p className="text-sm font-semibold">Reports are not connected yet</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Sales trends, profit summaries and recent invoice highlights will appear when the reporting module is implemented. No placeholder figures are shown as real totals.</p>{canSee({ anyOf: ["report.view", "report.view_own"] }, permissions) ? <Link href="/reports" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary-text hover:underline">Open reports <ArrowRight className="size-3.5" aria-hidden /></Link> : null}</div>
+                <div><p className="text-sm font-semibold">{t(locale, "dashboard.reportingNotReady")}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{t(locale, "dashboard.reportingNotReadyDesc")}</p>{canSee({ anyOf: ["report.view", "report.view_own"] }, permissions) ? <Link href="/reports" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary-text hover:underline">{t(locale, "dashboard.openReports")} <ArrowRight className="size-3.5" aria-hidden /></Link> : null}</div>
               </div>
             </CardContent>
           </Card>
@@ -372,14 +376,14 @@ export default async function DashboardPage() {
       </section>
 
       <footer className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-border/80 pt-4 text-xs text-muted-foreground">
-        <span>Mitali Medicine Corner · Boarding Market</span>
-        <span className="inline-flex items-center gap-1.5"><ShieldAlert className="size-3.5" aria-hidden /> Stock and balances are permission-controlled.</span>
+        <span>{t(locale, "dashboard.shopFooter")}</span>
+        <span className="inline-flex items-center gap-1.5"><ShieldAlert className="size-3.5" aria-hidden /> {t(locale, "dashboard.permissionFooter")}</span>
       </footer>
     </>
   );
 }
 
-function ExpiryRow({ item }: { item: ExpiryItem }) {
+function ExpiryRow({ item, locale }: { item: ExpiryItem; locale: "en" | "bn" }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3.5 sm:px-5">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"><Pill className="size-[18px]" aria-hidden /></span>
