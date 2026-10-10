@@ -23,6 +23,8 @@ export type CartLine = {
   mrp?: string | null;
   salePrice?: string | null;
   batchCount?: number;
+  sellableQty?: number;
+  nearestExpiry?: string | null;
   quantity: number;
   discountType: DiscountType;
   /** Text as typed; the server parses it. */
@@ -46,6 +48,8 @@ export type CartMedicine = {
   mrp?: string | null;
   salePrice?: string | null;
   batchCount?: number;
+  sellableQty?: number;
+  nearestExpiry?: string | null;
 };
 
 export type CartAction =
@@ -74,7 +78,20 @@ export function cartReducer(lines: CartLine[], action: CartAction): CartLine[] {
       const add = clampQuantity(action.quantity ?? 1);
       if (existing) {
         return lines.map((l) =>
-          l.key === existing.key ? { ...l, quantity: clampQuantity(l.quantity + add) } : l,
+          l.key === existing.key ? {
+            ...l,
+            quantity: clampQuantity(l.quantity + add),
+            genericName: action.medicine.genericName ?? l.genericName ?? null,
+            dosageForm: action.medicine.dosageForm ?? l.dosageForm ?? null,
+            companyName: action.medicine.companyName ?? l.companyName ?? null,
+            barcode: action.medicine.barcode ?? l.barcode ?? null,
+            sku: action.medicine.sku ?? l.sku ?? null,
+            mrp: action.medicine.mrp ?? l.mrp ?? null,
+            salePrice: action.medicine.salePrice ?? l.salePrice ?? null,
+            batchCount: action.medicine.batchCount ?? l.batchCount,
+            sellableQty: action.medicine.sellableQty ?? l.sellableQty,
+            nearestExpiry: action.medicine.nearestExpiry ?? l.nearestExpiry ?? null,
+          } : l,
         );
       }
       if (lines.length >= MAX_LINES) return lines;
@@ -95,6 +112,8 @@ export function cartReducer(lines: CartLine[], action: CartAction): CartLine[] {
           mrp: action.medicine.mrp ?? null,
           salePrice: action.medicine.salePrice ?? null,
           batchCount: action.medicine.batchCount,
+          sellableQty: action.medicine.sellableQty,
+          nearestExpiry: action.medicine.nearestExpiry ?? null,
           quantity: add,
           discountType: "NONE",
           discountValue: "",
