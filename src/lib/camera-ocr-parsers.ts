@@ -63,7 +63,7 @@ export function suggestProductLabelDetails(raw: string): ProductLabelSuggestions
   ) ?? "";
   let name = brandLine;
   if (name && strength && !name.toLowerCase().includes(strength.toLowerCase())) name = `${name} ${strength}`;
-  if (name && dosageForm && !new RegExp(`\\\\b${dosageForm}\\\\b`, "i").test(name)) name = `${name} ${dosageForm}`;
+  if (name && dosageForm && !name.toLowerCase().includes(dosageForm.toLowerCase())) name = `${name} ${dosageForm}`;
 
   const generic = genericLine
     .replace(/\b(?:bp|usp|ip|ph\.\s*eur\.?)\b/gi, "")
