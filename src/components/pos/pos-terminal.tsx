@@ -306,9 +306,11 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
                   }
                   setQuery(code);
                   setScanError(
-                    'No exact match for barcode/SKU "' + code +
-                    '". " + (locale === "bn" ? "কিছু যোগ করা হয়নি। আগে এই বারকোডটি ক্যাটালগের সঠিক পণ্যে সংরক্ষণ করুন।" : "Nothing was added. Save this code to the correct product in the catalogue first.")
-                  );
+                    'No exact match for barcode/SKU "' + code + '". ' +
+                    (locale === "bn"
+                      ? "কিছু যোগ করা হয়নি। আগে এই বারকোডটি ক্যাটালগের সঠিক পণ্যে সংরক্ষণ করুন।"
+                      : "Nothing was added. Save this code to the correct product in the catalogue first.")
+                  ;
                   setAnnounce(locale === "bn" ? "বারকোডটি কোনো পণ্যের সঙ্গে যুক্ত নয়। কিছু যোগ করা হয়নি।" : "Barcode not linked to a product. No item was added.");
                 }, 140);
               }
@@ -380,13 +382,13 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
               href={`/medicines/new?barcode=${encodeURIComponent(query)}`}
               className="mt-2 inline-flex text-sm font-semibold text-primary-text underline underline-offset-2"
             >
-              Add this barcode to the catalogue
+              {locale === "bn" ? "এই বারকোডটি ক্যাটালগে যোগ করুন" : "Add this barcode to the catalogue"}
             </Link>
           </Alert>
         ) : null}
 
         <div className="mt-3">
-          {query.trim() === "" ? (
+          {query.trim() === "" && !lastAdded ? (
             <Card>
               <EmptyState
                 icon={Search}
@@ -454,12 +456,12 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
                             ) : (
                               <span className="text-sm text-muted-foreground">{locale === "bn" ? "দাম দেওয়া নেই" : "Price not set"}</span>
                             )}
-                            {m.mrp !== null ? <span className="text-[11px] text-muted-foreground">MRP <MoneyText amount={m.mrp} fractionDigits={2} className="inline" /></span> : null}
+                            {m.mrp !== null ? <span className="text-[11px] text-muted-foreground">{locale === "bn" ? "এমআরপি" : "MRP"} <MoneyText amount={m.mrp} fractionDigits={2} className="inline" /></span> : null}
                             <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className="tabular">{m.sellableQty} in stock</span>
-                              {m.batchCount > 1 ? <span>{m.batchCount} batches</span> : null}
+                              <span className="tabular">{m.sellableQty.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD")} {locale === "bn" ? "টি মজুত" : "in stock"}</span>
+                              {m.batchCount > 1 ? <span>{m.batchCount.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD")} {locale === "bn" ? "টি ব্যাচ" : "batches"}</span> : null}
                             </span>
-                            {m.nearestExpiry ? <span className="text-xs text-muted-foreground">Next expiry {formatDate(m.nearestExpiry)}</span> : null}
+                            {m.nearestExpiry ? <span className="text-xs text-muted-foreground">{locale === "bn" ? "পরবর্তী মেয়াদ" : "Next expiry"} {formatDate(m.nearestExpiry)}</span> : null}
                           </>
                         )}
                       </span>
