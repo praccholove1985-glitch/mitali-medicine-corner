@@ -34,7 +34,8 @@ export function MedicineForm({ medicine, initialBarcode = "", catalogue, canEdit
   const [categoryId, setCategoryId] = useState(state.values?.category_id ?? medicine?.categoryId ?? "");
   const barcodeRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
-  const [labelDraft, setLabelDraft] = useState<{ rawText: string; details: ProductLabelSuggestions } | null>(null);\n  const [labelNotice, setLabelNotice] = useState<string | null>(null);
+  const [labelDraft, setLabelDraft] = useState<{ rawText: string; details: ProductLabelSuggestions } | null>(null);
+  const [labelNotice, setLabelNotice] = useState<string | null>(null);
 
   // What the user typed wins over the saved record after a failed submit.
   const v = (key: string, saved: string | number | null | undefined) =>
