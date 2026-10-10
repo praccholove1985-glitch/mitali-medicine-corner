@@ -14,7 +14,6 @@ import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
 import { TableSkeleton } from "@/components/common/loading-state";
 import { cn } from "@/lib/utils";
-import { getLocale } from "@/lib/locale";
 import { localizeText, type Locale } from "@/lib/i18n";
 
 export type DataTableColumn<T> = {
@@ -48,6 +47,7 @@ type DataTableProps<T> = {
   empty?: { icon?: LucideIcon; title: string; description?: React.ReactNode; action?: React.ReactNode };
   pagination?: DataTablePagination;
   className?: string;
+  locale?: Locale;
 };
 
 /**
@@ -55,7 +55,7 @@ type DataTableProps<T> = {
  * itself: the caller passes the current page of rows and handles paging.
  * Covers the four states every list needs: loading, error, empty, data.
  */
-async function DataTable<T>({
+function DataTable<T>({
   columns,
   rows,
   getRowId,
@@ -66,8 +66,8 @@ async function DataTable<T>({
   empty = { title: "Nothing here yet" },
   pagination,
   className,
+  locale = "en",
 }: DataTableProps<T>) {
-  const locale = await getLocale();
   const localizedCaption = localizeText(locale, caption);
   const localizedEmpty = {
     ...empty,
