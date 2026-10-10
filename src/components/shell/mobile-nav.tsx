@@ -14,7 +14,6 @@ import {
 import { BrandMark, BrandName } from "@/components/shell/brand";
 import { NavList } from "@/components/shell/nav-list";
 import type { Locale } from "@/lib/i18n";
-import { t } from "@/lib/i18n";
 
 /** Drawer navigation for phones. Focus is trapped and Esc closes it. */
 export function MobileNav({ permissions, locale }: { permissions: readonly string[]; locale: Locale }) {
