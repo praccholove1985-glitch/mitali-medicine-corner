@@ -365,6 +365,7 @@ export default async function DashboardPage() {
               <div className="flex items-start gap-3 rounded-xl border border-dashed border-border bg-muted/35 p-4">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-text"><ClipboardList className="size-5" aria-hidden /></span>
                 <div><p className="text-sm font-semibold">Reports are not connected yet</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Sales trends, profit summaries and recent invoice highlights will appear when the reporting module is implemented. No placeholder figures are shown as real totals.</p>{canSee({ anyOf: ["report.view", "report.view_own"] }, permissions) ? <Link href="/reports" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary-text hover:underline">Open reports <ArrowRight className="size-3.5" aria-hidden /></Link> : null}</div>
+              </div>
             </CardContent>
           </Card>
         </div>
