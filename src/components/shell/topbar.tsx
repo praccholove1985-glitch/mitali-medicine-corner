@@ -1,9 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MobileNav } from "@/components/shell/mobile-nav";
-import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { ConnectionIndicator } from "@/components/shell/connection-indicator";
 import { UserMenu } from "@/components/shell/user-menu";
 import type { Role } from "@/types/session";
@@ -17,7 +18,7 @@ export function Topbar({ permissions, user }: TopbarProps) {
   const canSell = permissions.includes("sale.create");
   const canSearch = permissions.includes("medicine.view");
   return (
-    <div className="sticky top-0 z-20 flex h-16 print:hidden items-center gap-2 border-b bg-card/95 px-3 backdrop-blur sm:gap-3 sm:px-6">
+    <div className="sticky top-0 z-20 flex h-16 print:hidden items-center gap-2 border-b bg-card px-3 sm:gap-3 sm:px-6">
       <MobileNav permissions={permissions} />
 
       {/* Opens the medicine search with the typed text; disabled without medicine.view. */}
@@ -39,7 +40,6 @@ export function Topbar({ permissions, user }: TopbarProps) {
 
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
         <ConnectionIndicator />
-        <ThemeToggle />
         {canSell ? (
           <>
             <Button asChild size="md" className="hidden sm:inline-flex">
