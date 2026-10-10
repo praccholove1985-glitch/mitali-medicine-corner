@@ -36,7 +36,7 @@ export function UserMenu({ name, email, role, locale }: UserMenuProps) {
           <span className="text-[11px] text-muted-foreground">{roles[role]}</span>
         </span>
         <span className="sr-only md:hidden">
-          {display}, {ROLE_LABEL[role]}
+          {display}, {roles[role]}
         </span>
       </div>
       <form action={signOut}>
