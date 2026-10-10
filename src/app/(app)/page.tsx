@@ -159,9 +159,9 @@ export default async function DashboardPage() {
   const metrics = [
     ...(permissions.includes("sale.create") || permissions.includes("report.view") || permissions.includes("report.view_own")
       ? [{
-          label: "Sales today",
+          label: t(locale, "dashboard.salesToday"),
           value: <span aria-hidden>—</span>,
-          caption: "Sales summaries arrive with Reports (Phase 10).",
+          caption: t(locale, "dashboard.salesNotReady"),
           icon: Banknote,
           tone: "blue" as const,
           unavailable: true,
@@ -170,25 +170,25 @@ export default async function DashboardPage() {
     ...(permissions.includes("stock.view")
       ? [
           {
-            label: "Sellable units",
+            label: t(locale, "dashboard.sellableUnits"),
             value: inventory ? inventory.sellableUnits.toLocaleString("en-BD") : <span aria-hidden>—</span>,
-            caption: inventory ? `${inventory.stockedMedicines.toLocaleString("en-BD")} medicines currently stocked` : inventoryFailed ? "Couldn't load stock summary. Refresh to retry." : "Live stock summary",
+            caption: inventory ? inventory.stockedMedicines.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD") + " " + t(locale, "dashboard.stockedMedicines") : inventoryFailed ? t(locale, "dashboard.failedStock") : t(locale, "dashboard.stockSummaryLive"),
             icon: PackageCheck,
             tone: "green" as const,
             unavailable: !inventory,
           },
           {
-            label: "Low stock",
+            label: t(locale, "dashboard.lowStock"),
             value: inventory ? inventory.lowStockCount.toLocaleString("en-BD") : <span aria-hidden>—</span>,
-            caption: inventory ? `${inventory.outOfStockCount.toLocaleString("en-BD")} out of stock · reorder review` : inventoryFailed ? "Couldn't load stock summary. Refresh to retry." : "Live stock summary",
+            caption: inventory ? inventory.outOfStockCount.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD") + " " + t(locale, "dashboard.outOfStock") + " · " + t(locale, "dashboard.reorderReview") : inventoryFailed ? t(locale, "dashboard.failedStock") : t(locale, "dashboard.stockSummaryLive"),
             icon: PackageSearch,
             tone: inventory && inventory.outOfStockCount > 0 ? "red" as const : "amber" as const,
             unavailable: !inventory,
           },
           {
-            label: "Expiry watch",
-            value: inventory ? (inventory.expiring30Batches + inventory.expiredBatches).toLocaleString("en-BD") : <span aria-hidden>—</span>,
-            caption: inventory ? `${inventory.expiredBatches.toLocaleString("en-BD")} expired batches · ${inventory.expiring30Batches.toLocaleString("en-BD")} nearing expiry` : inventoryFailed ? "Couldn't load stock summary. Refresh to retry." : "Live batch summary",
+            label: t(locale, "dashboard.expiryWatch"),
+            value: inventory ? (inventory.expiring30Batches + inventory.expiredBatches).toLocaleString(locale === "bn" ? "bn-BD" : "en-BD") : <span aria-hidden>—</span>,
+            caption: inventory ? inventory.expiredBatches.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD") + " " + t(locale, "dashboard.expiredBatches") + " · " + inventory.expiring30Batches.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD") + " " + t(locale, "dashboard.nearingExpiry") : inventoryFailed ? t(locale, "dashboard.failedStock") : (locale === "bn" ? "লাইভ ব্যাচ সারসংক্ষেপ" : "Live batch summary"),
             icon: CalendarClock,
             tone: inventory && (inventory.expiredBatches > 0 || inventory.expiring30Batches > 0) ? "red" as const : "slate" as const,
             unavailable: !inventory,
@@ -197,9 +197,9 @@ export default async function DashboardPage() {
       : []),
     ...(permissions.includes("customer.view")
       ? [{
-          label: "Customer due",
+          label: t(locale, "dashboard.customerDue"),
           value: due ? <MoneyText amount={due.totalDue} fractionDigits={2} /> : <span aria-hidden>—</span>,
-          caption: due ? `${due.customersWithDue.toLocaleString("en-BD")} customers have an outstanding balance` : dueFailed ? "Couldn't load customer balances. Refresh to retry." : "Live customer ledger",
+          caption: due ? due.customersWithDue.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD") + " " + t(locale, "dashboard.customersOutstanding") : dueFailed ? t(locale, "dashboard.failedDue") : (locale === "bn" ? "লাইভ গ্রাহক খাতা" : "Live customer ledger"),
           icon: Users,
           tone: "amber" as const,
           unavailable: !due,
@@ -207,9 +207,9 @@ export default async function DashboardPage() {
       : []),
     ...(permissions.includes("supplier.view")
       ? [{
-          label: "Supplier payable",
+          label: t(locale, "dashboard.supplierPayable"),
           value: supplierDue ? <MoneyText amount={supplierDue.totalPayable} fractionDigits={2} /> : <span aria-hidden>—</span>,
-          caption: supplierDue ? `${supplierDue.suppliersWithDue.toLocaleString("en-BD")} suppliers with outstanding dues` : supplierDueFailed ? "Couldn't load supplier balances. Refresh to retry." : "Live supplier ledger",
+          caption: supplierDue ? supplierDue.suppliersWithDue.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD") + " " + t(locale, "dashboard.suppliersOutstanding") : supplierDueFailed ? t(locale, "dashboard.failedSupplier") : (locale === "bn" ? "লাইভ সরবরাহকারী খাতা" : "Live supplier ledger"),
           icon: Building2,
           tone: "blue" as const,
           unavailable: !supplierDue,
@@ -217,9 +217,9 @@ export default async function DashboardPage() {
       : []),
     ...(permissions.includes("purchase.view_cost") && permissions.includes("stock.view")
       ? [{
-          label: "Stock value at cost",
+          label: t(locale, "dashboard.stockValue"),
           value: inventory?.valueAtCost !== null && inventory?.valueAtCost !== undefined ? <MoneyText amount={inventory.valueAtCost} fractionDigits={2} /> : <span aria-hidden>—</span>,
-          caption: inventory ? "Based on recorded batch costs" : inventoryFailed ? "Couldn't load stock value. Refresh to retry." : "Restricted to authorised roles",
+          caption: inventory ? t(locale, "dashboard.batchCosts") : inventoryFailed ? t(locale, "dashboard.failedStock") : (locale === "bn" ? "অনুমোদিত ভূমিকার জন্য সীমাবদ্ধ" : "Restricted to authorised roles"),
           icon: Boxes,
           tone: "slate" as const,
           unavailable: !inventory || inventory.valueAtCost === null,
@@ -228,12 +228,12 @@ export default async function DashboardPage() {
   ];
 
   const actions = [
-    { href: "/pos", label: "New sale", description: "Start a customer bill", icon: ShoppingCart, permission: "sale.create" },
-    { href: "/medicines/new", label: "Add medicine", description: "Create a catalogue item", icon: Pill, permission: "medicine.edit" },
-    { href: "/purchases/new", label: "Receive stock", description: "Enter a supplier invoice", icon: Truck, permission: "purchase.create" },
-    { href: "/customers", label: "Customer ledger", description: "Review balances and payments", icon: Wallet, permission: "customer.view" },
-    { href: "/inventory", label: "Stock overview", description: "Review batches and quantities", icon: Boxes, permission: "stock.view" },
-    { href: "/suppliers", label: "Suppliers", description: "Check supplier balances", icon: Building2, permission: "supplier.view" },
+    { href: "/pos", label: t(locale, "dashboard.newSale"), description: t(locale, "dashboard.startBill"), icon: ShoppingCart, permission: "sale.create" },
+    { href: "/medicines/new", label: t(locale, "dashboard.addMedicine"), description: t(locale, "dashboard.addMedicineDesc"), icon: Pill, permission: "medicine.edit" },
+    { href: "/purchases/new", label: t(locale, "dashboard.receiveStock"), description: t(locale, "dashboard.receiveStockDesc"), icon: Truck, permission: "purchase.create" },
+    { href: "/customers", label: t(locale, "dashboard.customerLedger"), description: t(locale, "dashboard.customerLedgerDesc"), icon: Wallet, permission: "customer.view" },
+    { href: "/inventory", label: t(locale, "dashboard.stockOverview"), description: t(locale, "dashboard.stockOverviewDesc"), icon: Boxes, permission: "stock.view" },
+    { href: "/suppliers", label: t(locale, "nav.Suppliers"), description: t(locale, "dashboard.suppliersDesc"), icon: Building2, permission: "supplier.view" },
   ].filter((action) => permissions.includes(action.permission));
 
   const attentionCount = inventory ? inventory.lowStockCount + inventory.outOfStockCount + inventory.expiring30Batches + inventory.expiredBatches : null;
@@ -274,7 +274,7 @@ export default async function DashboardPage() {
             {metrics.map((metric) => <MetricCard key={metric.label} {...metric} locale={locale} />)}
           </div>
         ) : (
-          <Card><CardContent className="py-6"><EmptyState icon={ShieldAlert} title="No dashboard figures available" description="Ask the shop administrator to check your role permissions." /></CardContent></Card>
+          <Card><CardContent className="py-6"><EmptyState icon={ShieldAlert} title={t(locale, "dashboard.balanceRestricted")} description={t(locale, "dashboard.balanceRestrictedDesc")} /></CardContent></Card>
         )}
       </section>
 
@@ -282,7 +282,7 @@ export default async function DashboardPage() {
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-border/80 bg-muted/35 sm:px-5">
             <div>
-              <div className="flex items-center gap-2"><CardTitle>{t(locale, "dashboard.stockAttention")}</CardTitle>{attentionCount !== null ? <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning-text">{attentionCount} flags</span> : null}</div>
+              <div className="flex items-center gap-2"><CardTitle>{t(locale, "dashboard.stockAttention")}</CardTitle>{attentionCount !== null ? <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning-text">{attentionCount.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD")} {t(locale, "dashboard.flags")}</span> : null}</div>
               <CardDescription className="mt-1">{t(locale, "dashboard.stockAttentionDesc")}</CardDescription>
             </div>
             {permissions.includes("stock.view") ? <Link href="/inventory" className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary-text hover:underline">{t(locale, "dashboard.openInventory")} <ArrowRight className="size-3.5" aria-hidden /></Link> : null}
@@ -301,13 +301,13 @@ export default async function DashboardPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <Link href="/inventory?filter=low" className="group rounded-xl border border-warning/25 bg-warning-soft/45 p-4 transition-colors hover:bg-warning-soft">
                   <div className="flex items-center justify-between gap-3"><span className="flex size-9 items-center justify-center rounded-lg bg-warning-soft text-warning-text"><PackageSearch className="size-5" aria-hidden /></span><ArrowRight className="size-4 text-warning-text transition-transform group-hover:translate-x-0.5" aria-hidden /></div>
-                  <p className="mt-4 text-2xl font-semibold tracking-tight text-foreground">{inventory?.lowStockCount ?? "—"}</p>
+                  <p className="mt-4 text-2xl font-semibold tracking-tight text-foreground">{inventory ? inventory.lowStockCount.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD") : "—"}</p>
                   <p className="mt-1 text-sm font-semibold">{t(locale, "dashboard.lowStockMedicines")}</p>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">{t(locale, "dashboard.atReorder")}</p>
                 </Link>
                 <Link href="/inventory?filter=expired" className="group rounded-xl border border-danger/20 bg-danger-soft/45 p-4 transition-colors hover:bg-danger-soft">
                   <div className="flex items-center justify-between gap-3"><span className="flex size-9 items-center justify-center rounded-lg bg-danger-soft text-danger-text"><AlertTriangle className="size-5" aria-hidden /></span><ArrowRight className="size-4 text-danger-text transition-transform group-hover:translate-x-0.5" aria-hidden /></div>
-                  <p className="mt-4 text-2xl font-semibold tracking-tight text-foreground">{inventory?.expiredBatches ?? "—"}</p>
+                  <p className="mt-4 text-2xl font-semibold tracking-tight text-foreground">{inventory ? inventory.expiredBatches.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD") : "—"}</p>
                   <p className="mt-1 text-sm font-semibold">{t(locale, "dashboard.expiredBatchTitle")}</p>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">{t(locale, "dashboard.expiredBatchDesc")}</p>
                 </Link>
@@ -315,7 +315,7 @@ export default async function DashboardPage() {
             )}
             {permissions.includes("stock.view") && inventory ? (
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/80 px-3.5 py-3">
-                <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground"><CalendarClock className="size-4 shrink-0 text-warning-text" aria-hidden /><span><strong className="font-semibold text-foreground">{t(locale, "dashboard.expiryWithin")}:</strong> {inventory.expiring30Batches} batches</span></div>
+                <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground"><CalendarClock className="size-4 shrink-0 text-warning-text" aria-hidden /><span><strong className="font-semibold text-foreground">{t(locale, "dashboard.expiryWithin")}:</strong> {inventory.expiring30Batches.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD")} {locale === "bn" ? "টি ব্যাচ" : "batches"}</span></div>
                 <Link href="/inventory/expiry" className="text-xs font-semibold text-primary-text hover:underline">{t(locale, "dashboard.reviewExpiry")}</Link>
               </div>
             ) : null}
@@ -348,7 +348,7 @@ export default async function DashboardPage() {
                 {expiring.items.map((item) => <ExpiryRow key={item.batchId} item={item} locale={locale} />)}
               </div>
             ) : (
-              <div className="p-5"><EmptyState icon={CalendarClock} title={t(locale, "dashboard.noExpiryFlags")} description="{t(locale, "dashboard.noExpiryFlagsDesc")}" /></div>
+              <div className="p-5"><EmptyState icon={CalendarClock} title={t(locale, "dashboard.noExpiryFlags")} description={t(locale, "dashboard.noExpiryFlagsDesc")} /></div>
             )}
             {expiring && expiring.total > expiring.items.length ? <div className="border-t border-border/80 px-5 py-3"><Link href="/inventory/expiry" className="text-xs font-semibold text-primary-text hover:underline">{t(locale, "dashboard.viewAll")} {expiring.total} {t(locale, "dashboard.matchingBatches")}</Link></div> : null}
           </CardContent>
@@ -358,8 +358,8 @@ export default async function DashboardPage() {
           <Card>
             <CardHeader><div><CardTitle>{t(locale, "dashboard.balances")}</CardTitle><CardDescription className="mt-1">{t(locale, "dashboard.balancesDesc")}</CardDescription></div></CardHeader>
             <CardContent className="space-y-3">
-              {permissions.includes("customer.view") ? <BalanceRow href="/customers" label="Customer due" detail={due ? `${due.customersWithDue} customers with balance` : dueFailed ? "Summary unavailable" : "Ledger summary"} icon={Users} amount={due ? <MoneyText amount={due.totalDue} fractionDigits={2} /> : "—"} /> : null}
-              {permissions.includes("supplier.view") ? <BalanceRow href="/suppliers" label="Supplier payable" detail={supplierDue ? `${supplierDue.suppliersWithDue} suppliers with balance` : supplierDueFailed ? "Summary unavailable" : "Ledger summary"} icon={Building2} amount={supplierDue ? <MoneyText amount={supplierDue.totalPayable} fractionDigits={2} /> : "—"} /> : null}
+              {permissions.includes("customer.view") ? <BalanceRow href="/customers" label="Customer due" detail={due ? due.customersWithDue.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD") + " " + t(locale, "dashboard.customersWithBalance") : dueFailed ? t(locale, "dashboard.summaryUnavailable") : t(locale, "dashboard.ledgerSummary")} icon={Users} amount={due ? <MoneyText amount={due.totalDue} fractionDigits={2} /> : "—"} /> : null}
+              {permissions.includes("supplier.view") ? <BalanceRow href="/suppliers" label="Supplier payable" detail={supplierDue ? supplierDue.suppliersWithDue.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD") + " " + t(locale, "dashboard.suppliersWithBalance") : supplierDueFailed ? t(locale, "dashboard.summaryUnavailable") : t(locale, "dashboard.ledgerSummary")} icon={Building2} amount={supplierDue ? <MoneyText amount={supplierDue.totalPayable} fractionDigits={2} /> : "—"} /> : null}
               {!permissions.includes("customer.view") && !permissions.includes("supplier.view") ? <EmptyState icon={ShieldAlert} title={t(locale, "dashboard.balanceRestricted")} description={t(locale, "dashboard.balanceRestrictedDesc")} /> : null}
             </CardContent>
           </Card>
@@ -389,7 +389,7 @@ function ExpiryRow({ item, locale }: { item: ExpiryItem; locale: "en" | "bn" }) 
       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"><Pill className="size-[18px]" aria-hidden /></span>
       <div className="min-w-0 flex-1">
         <Link href={`/medicines/${item.medicineId}`} className="block truncate text-sm font-semibold text-foreground hover:text-primary-text hover:underline">{item.medicineName}{item.strength ? ` · ${item.strength}` : ""}</Link>
-        <p className="mt-1 truncate text-xs text-muted-foreground">Batch {item.batchNumber} · {item.quantity.toLocaleString("en-BD")} units · Expires {formatDate(item.expiryDate)}</p>
+        <p className="mt-1 truncate text-xs text-muted-foreground">{locale === "bn" ? "ব্যাচ" : "Batch"} {item.batchNumber} · {item.quantity.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD")} {locale === "bn" ? "ইউনিট" : "units"} · {t(locale, "dashboard.expires")} {formatDate(item.expiryDate)}</p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1.5"><ExpiryBadge daysToExpiry={item.daysToExpiry} /><span className="text-[11px] text-muted-foreground">{item.daysToExpiry <= 0 ? "Remove from sale" : `${item.daysToExpiry} days`}</span></div>
     </div>
