@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field } from "@/components/ui/field";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { MobileBarcodeScanner } from "@/components/common/mobile-barcode-scanner";
 import { saveMedicineAction, type FormState } from "@/app/(app)/medicines/actions";
 import type { Catalogue, MedicineDetail } from "@/server/db/medicines";
 
@@ -27,6 +28,7 @@ const UNITS = ["pcs", "strip", "bottle", "vial", "tube", "sachet", "box"];
 export function MedicineForm({ medicine, initialBarcode = "", catalogue, canEditPrice, purchasePrice }: MedicineFormProps) {
   const [state, formAction, pending] = useActionState(saveMedicineAction, initialState);
   const [categoryId, setCategoryId] = useState(state.values?.category_id ?? medicine?.categoryId ?? "");
+  const barcodeRef = useRef<HTMLInputElement>(null);
 
   // What the user typed wins over the saved record after a failed submit.
   const v = (key: string, saved: string | number | null | undefined) =>
@@ -141,8 +143,28 @@ export function MedicineForm({ medicine, initialBarcode = "", catalogue, canEdit
           <Field label="Pack size" htmlFor="pack_size" error={err.pack_size} hint="Units in one pack, e.g. 10 tablets per strip">
             <Input name="pack_size" inputMode="numeric" defaultValue={v("pack_size", medicine?.packSize ?? 1)} />
           </Field>
-          <Field label="Barcode" htmlFor="barcode" error={err.barcode} hint="Click here and scan the pack">
-            <Input name="barcode" inputMode="numeric" defaultValue={v("barcode", medicine?.barcode ?? initialBarcode)} autoComplete="off" spellCheck={false} />
+          <Field label="Barcode" htmlFor="barcode" error={err.barcode} hint="Scan with the phone camera or type the code from the pack">
+            <div className="flex min-w-0 items-center gap-2">
+              <Input
+                ref={barcodeRef}
+                id="barcode"
+                name="barcode"
+                inputMode="numeric"
+                defaultValue={v("barcode", medicine?.barcode ?? initialBarcode)}
+                autoComplete="off"
+                spellCheck={false}
+                className="min-w-0 flex-1"
+              />
+              <MobileBarcodeScanner
+                size="sm"
+                onDetected={(code) => {
+                  if (barcodeRef.current) {
+                    barcodeRef.current.value = code;
+                    barcodeRef.current.focus();
+                  }
+                }}
+              />
+            </div>
           </Field>
           <Field label="SKU" htmlFor="sku" error={err.sku} hint="Your own short code (optional)">
             <Input name="sku" defaultValue={v("sku", medicine?.sku)} autoComplete="off" spellCheck={false} />
