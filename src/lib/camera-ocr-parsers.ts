@@ -82,11 +82,12 @@ export function suggestProductLabelDetails(raw: string): ProductLabelSuggestions
 
 export function productSearchTextFromLabel(raw: string): string {
   const details = suggestProductLabelDetails(raw);
-  if (details.brandName) {
-    return [details.brandName, details.strength, details.dosageForm]
-      .filter(Boolean)
-      .join(" ")
-      .slice(0, 100);
+  const identity = details.brandName || details.name;
+  if (identity) {
+    const parts = [identity.trim()];
+    if (details.strength && !identity.toLowerCase().includes(details.strength.toLowerCase())) parts.push(details.strength);
+    if (details.dosageForm && !identity.toLowerCase().includes(details.dosageForm.toLowerCase())) parts.push(details.dosageForm);
+    return parts.filter(Boolean).join(" ").slice(0, 100);
   }
   return cleanLines(raw).find((line) => /\p{L}/u.test(line) && !PRODUCT_NOISE.test(line) && line.length <= 100)?.slice(0, 100) ?? "";
 }
