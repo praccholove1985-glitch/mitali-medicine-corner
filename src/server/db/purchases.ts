@@ -22,6 +22,10 @@ export type PurchaseMedicine = {
   id: string;
   name: string;
   genericName: string | null;
+  brandName: string | null;
+  barcode: string | null;
+  sku: string | null;
+  packSize: number;
   companyName: string | null;
   strength: string | null;
   dosageForm: string | null;
@@ -45,6 +49,10 @@ export async function searchPurchaseMedicines(branchId: string, query: string): 
     id: String(r.id),
     name: String(r.name),
     genericName: str(r.generic_name),
+    brandName: str(r.brand_name),
+    barcode: str(r.barcode),
+    sku: str(r.sku),
+    packSize: Number(r.pack_size ?? 1),
     companyName: str(r.company_name),
     strength: str(r.strength),
     dosageForm: str(r.dosage_form),
