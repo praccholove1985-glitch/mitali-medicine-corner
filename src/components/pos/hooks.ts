@@ -106,8 +106,8 @@ export function useProductSearch(query: string, debounceMs = 150) {
     };
   }, [trimmed, debounceMs]);
 
-  async function searchNow(): Promise<PosMedicine[]> {
-    const q = latest.current;
+  async function searchNow(searchTerm?: string): Promise<PosMedicine[]> {
+    const q = (searchTerm ?? latest.current).trim();
     if (q === "") return [];
     try {
       const items = await fetchSearch(q);
