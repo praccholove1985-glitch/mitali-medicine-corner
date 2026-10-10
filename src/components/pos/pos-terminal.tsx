@@ -310,7 +310,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
                     (locale === "bn"
                       ? "কিছু যোগ করা হয়নি। আগে এই বারকোডটি ক্যাটালগের সঠিক পণ্যে সংরক্ষণ করুন।"
                       : "Nothing was added. Save this code to the correct product in the catalogue first.")
-                  ;
+                  );
                   setAnnounce(locale === "bn" ? "বারকোডটি কোনো পণ্যের সঙ্গে যুক্ত নয়। কিছু যোগ করা হয়নি।" : "Barcode not linked to a product. No item was added.");
                 }, 140);
               }
