@@ -8,25 +8,33 @@ import { mapError } from "@/server/errors";
 
 export type SignInState = {
   /** Field-level problems, keyed by field name. */
-  fieldErrors?: { email?: string; password?: string };
+  fieldErrors?: { phone?: string; password?: string };
   /** A problem with the attempt as a whole. */
   formError?: string;
-  /** Echoed back so the email field is not cleared on failure. Never the password. */
-  email?: string;
+  /** Echo the phone number back on failure, never the password. */
+  phone?: string;
 };
 
+function toE164BangladeshPhone(input: string): string {
+  const phone = input.trim().replace(/[\s()-]/g, "");
+  if (phone.startsWith("+")) return phone;
+  if (phone.startsWith("880")) return `+${phone}`;
+  if (phone.startsWith("01")) return `+880${phone.slice(1)}`;
+  return phone;
+}
+
 export async function signIn(_prev: SignInState, formData: FormData): Promise<SignInState> {
-  const email = String(formData.get("email") ?? "");
+  const phone = String(formData.get("phone") ?? "");
   const parsed = signInSchema.safeParse({
-    email,
+    phone,
     password: String(formData.get("password") ?? ""),
   });
 
   if (!parsed.success) {
     const flat = parsed.error.flatten().fieldErrors;
     return {
-      email,
-      fieldErrors: { email: flat.email?.[0], password: flat.password?.[0] },
+      phone,
+      fieldErrors: { phone: flat.phone?.[0], password: flat.password?.[0] },
     };
   }
 
@@ -34,18 +42,18 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
   if (!supabase) redirect("/setup");
 
   const { error } = await supabase.auth.signInWithPassword({
-    email: parsed.data.email,
+    phone: toE164BangladeshPhone(parsed.data.phone),
     password: parsed.data.password,
   });
 
   if (error) {
     const mapped = mapError(error, "auth.signIn");
-    // Wrong password and unknown email must be indistinguishable.
+    // Keep authentication failures indistinguishable.
     const formError =
       mapped.code === "UNAUTHENTICATED" || mapped.code === "INVALID"
-        ? "Email or password is incorrect."
+        ? "Phone number or password is incorrect."
         : mapped.message;
-    return { email: parsed.data.email, formError };
+    return { phone: parsed.data.phone, formError };
   }
 
   redirect(safeNextPath(String(formData.get("next") ?? "")));
