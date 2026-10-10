@@ -518,6 +518,7 @@ const commonMessages: Record<string, readonly [string, string]> = {
   "common.Expiry": ["Expiry", "মেয়াদ"],
   "common.Batch": ["Batch", "ব্যাচ"],
   "common.Barcode": ["Barcode", "বারকোড"],
+  "common.The catalogue of everything the shop sells. Stock lives in batches, shown on each medicine.": ["The catalogue of everything the shop sells. Stock lives in batches, shown on each medicine.", "দোকানে বিক্রি হওয়া সব ওষুধের তালিকা। স্টক প্রতিটি ওষুধের ব্যাচ অনুযায়ী দেখানো হয়."],
 };
 
 export function localizeText(locale: Locale, value: string): string {
@@ -533,6 +534,5 @@ export function localizeText(locale: Locale, value: string): string {
 }
 
 export function navText(locale: Locale, value: string): string {
-  const key = (Object.keys(messages) as TranslationKey[]).find((candidate) => candidate.startsWith("nav.") && messages[candidate][0] === value);
   return localizeText(locale, value);
 }
