@@ -118,6 +118,8 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
         mrp: m.mrp,
         salePrice: m.salePrice,
         batchCount: m.batchCount,
+        sellableQty: m.sellableQty,
+        nearestExpiry: m.nearestExpiry,
       },
     });
     setAnnounce("Added " + m.name + ".");
@@ -268,6 +270,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
               type="button"
               onClick={() => {
                 setQuery("");
+                setScanError(null);
                 searchRef.current?.focus();
               }}
               className="absolute top-1/2 right-4 flex size-8 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-muted sm:right-10"
@@ -438,6 +441,8 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
                           ) : null}
                           {line.salePrice ? <p className="text-xs text-muted-foreground">{line.batchCount && line.batchCount > 1 ? "First-expiry batch price" : "Unit price"} <MoneyText amount={line.salePrice} fractionDigits={2} className="inline" /></p> : null}
                           {line.mrp ? <p className="text-xs text-muted-foreground">MRP <MoneyText amount={line.mrp} fractionDigits={2} className="inline" /></p> : null}
+                          {line.sellableQty !== undefined ? <p className="text-xs text-muted-foreground">Available stock: {line.sellableQty}</p> : null}
+                          {line.nearestExpiry ? <p className="text-xs text-muted-foreground">Next expiry: {formatDate(line.nearestExpiry)}</p> : null}
                           {line.batchLabel ? <p className="text-xs text-muted-foreground">Batch {line.batchLabel}</p> : null}
                           {priced && priced.batches > 1 ? (
                             <p className="text-xs text-muted-foreground">Taken from {priced.batches} batches</p>
