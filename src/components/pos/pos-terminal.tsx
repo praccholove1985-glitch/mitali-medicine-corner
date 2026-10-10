@@ -98,15 +98,28 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
   function addMedicine(m: PosMedicine) {
     if (m.sellableQty <= 0) {
       setScanError(null);
-      setAnnounce(`${m.name} is out of stock.`);
+      setAnnounce(m.name + " is out of stock.");
       return;
     }
     dispatch({
       type: "add",
       key: crypto.randomUUID(),
-      medicine: { id: m.id, name: m.name, strength: m.strength, unit: m.unit, prescriptionRequired: m.prescriptionRequired },
+      medicine: {
+        id: m.id,
+        name: m.name,
+        strength: m.strength,
+        unit: m.unit,
+        prescriptionRequired: m.prescriptionRequired,
+        genericName: m.genericName,
+        dosageForm: m.dosageForm,
+        companyName: m.companyName,
+        barcode: m.barcode,
+        sku: m.sku,
+        mrp: m.mrp,
+      },
     });
-    setAnnounce(`Added ${m.name}.`);
+    setAnnounce("Added " + m.name + ".");
+    setScanError(null);
     setSaleError(null);
     setQuery("");
     setActive(0);
@@ -130,9 +143,6 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
 
       const scannedCode = normalizeScannerValue(rawQuery);
       const isScannedCode = looksLikeScannedCode(scannedCode);
-
-      // Scanner input can include a symbology prefix. For barcode/SKU-shaped input,
-      // always query the exact normalized value and never add a fuzzy first result.
       const items = isScannedCode
         ? await searchNow(scannedCode)
         : search.status === "ready"
@@ -154,7 +164,8 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
           return;
         }
         setScanError(
-          \`No exact match for barcode/SKU "\${scannedCode}". Nothing was added. Save this barcode in the correct medicine's catalogue record first.\`,
+          'No exact match for barcode/SKU "' + scannedCode +
+          '". Nothing was added. Save this barcode in the correct medicine catalogue record first.'
         );
         setAnnounce("Barcode not linked to a medicine. No item was added.");
         return;
