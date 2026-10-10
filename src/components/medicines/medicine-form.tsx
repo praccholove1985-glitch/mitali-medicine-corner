@@ -8,6 +8,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field } from "@/components/ui/field";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { MobileBarcodeScanner } from "@/components/common/mobile-barcode-scanner";
+import { MobileCameraOCR } from "@/components/common/mobile-camera-ocr";
+import { suggestProductLabelDetails, type ProductLabelSuggestions } from "@/lib/camera-ocr-parsers";
+import type { Locale } from "@/lib/i18n";
 import { saveMedicineAction, type FormState } from "@/app/(app)/medicines/actions";
 import type { Catalogue, MedicineDetail } from "@/server/db/medicines";
 
@@ -25,10 +28,10 @@ const initialState: FormState = {};
 const DOSAGE_FORMS = ["Tablet", "Capsule", "Syrup", "Suspension", "Injection", "Cream", "Ointment", "Drops", "Inhaler", "Sachet", "Suppository"];
 const UNITS = ["pcs", "strip", "bottle", "vial", "tube", "sachet", "box"];
 
-export function MedicineForm({ medicine, initialBarcode = "", catalogue, canEditPrice, purchasePrice }: MedicineFormProps) {
+export function MedicineForm({ medicine, initialBarcode = "", catalogue, canEditPrice, purchasePrice, locale = "en" }: MedicineFormProps) {
   const [state, formAction, pending] = useActionState(saveMedicineAction, initialState);
   const [categoryId, setCategoryId] = useState(state.values?.category_id ?? medicine?.categoryId ?? "");
-  const barcodeRef = useRef<HTMLInputElement>(null);
+  const barcodeRef = useRef<HTMLInputElement>(null);\n  const formRef = useRef<HTMLFormElement>(null);\n  const [labelDraft, setLabelDraft] = useState<{ rawText: string; details: ProductLabelSuggestions } | null>(null);\n  const [labelNotice, setLabelNotice] = useState<string | null>(null);
 
   // What the user typed wins over the saved record after a failed submit.
   const v = (key: string, saved: string | number | null | undefined) =>
@@ -38,11 +41,112 @@ export function MedicineForm({ medicine, initialBarcode = "", catalogue, canEdit
   const isEdit = medicine !== null;
 
   return (
-    <form action={formAction} noValidate className="flex flex-col gap-4">
+    <form ref={formRef} action={formAction} noValidate className="flex flex-col gap-4">
       {medicine ? <input type="hidden" name="id" value={medicine.id} /> : null}
       {canEditPrice ? <input type="hidden" name="has_sale_price_field" value="1" /> : null}
       {purchasePrice ? <input type="hidden" name="has_purchase_price_field" value="1" /> : null}
 
+      <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <CardTitle className="text-base">{locale === "bn" ? "মোবাইল ক্যামেরায় পণ্যের লেখা পড়ুন" : "Read the product label with your phone"}</CardTitle>
+          <CardDescription className="mt-1">
+            {locale === "bn"
+              ? "বারকোড ছাড়াও নাম, ব্র্যান্ড, জেনেরিক, শক্তি ও প্রস্তুতকারকের লেখা পড়ে ফর্মে প্রস্তাব দিতে পারে। সংরক্ষণের আগে যাচাই করুন।"
+              : "Read printed name, brand, generic, strength and manufacturer details from a pack. Review the suggestions before saving."}
+          </CardDescription>
+        </div>
+        <MobileCameraOCR
+          mode="product"
+          locale={locale}
+          label={locale === "bn" ? "পণ্যের লেখা স্ক্যান" : "Scan product label"}
+          onExtracted={(rawText) => {
+            setLabelDraft({ rawText, details: suggestProductLabelDetails(rawText) });
+            setLabelNotice(null);
+          }}
+        />
+      </Card>
+      {labelDraft ? (
+        <Card className="border-primary/30">
+          <CardHeader>
+            <CardTitle>{locale === "bn" ? "স্ক্যান করা তথ্য যাচাই করুন" : "Review scanned product details"}</CardTitle>
+            <CardDescription>
+              {locale === "bn"
+                ? "OCR ভুল করতে পারে। নিচের প্রস্তাবগুলো ঠিক করে তারপর ফর্মে বসান। এতে কোনো পণ্য এখনো সংরক্ষণ হবে না।"
+                : "Text recognition can be wrong. Correct these suggestions, then copy them into the form. Nothing is saved yet."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <details className="rounded-md border px-3 py-2">
+              <summary className="cursor-pointer text-sm font-medium">{locale === "bn" ? "প্যাকেট থেকে পড়া সম্পূর্ণ লেখা" : "Full text read from the package"}</summary>
+              <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">{labelDraft.rawText}</pre>
+            </details>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {([
+                ["name", locale === "bn" ? "পণ্যের নাম" : "Product name"],
+                ["brandName", locale === "bn" ? "ব্র্যান্ড" : "Brand name"],
+                ["genericName", locale === "bn" ? "জেনেরিক / উপাদান" : "Generic / ingredient"],
+                ["strength", locale === "bn" ? "শক্তি" : "Strength"],
+                ["dosageForm", locale === "bn" ? "ডোজ ফর্ম" : "Dosage form"],
+                ["companyName", locale === "bn" ? "প্রস্তুতকারক" : "Manufacturer"],
+              ] as Array<[keyof ProductLabelSuggestions, string]>).map(([key, label]) => (
+                <Field key={key} label={label} htmlFor={`ocr-product-${key}`}>
+                  <Input
+                    id={`ocr-product-${key}`}
+                    value={labelDraft.details[key]}
+                    onChange={(event) => setLabelDraft((current) => current ? {
+                      ...current,
+                      details: { ...current.details, [key]: event.target.value },
+                    } : current)}
+                  />
+                </Field>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                onClick={() => {
+                  const form = formRef.current;
+                  if (!form || !labelDraft) return;
+                  const values: Array<[string, string]> = [
+                    ["name", labelDraft.details.name],
+                    ["brand_name", labelDraft.details.brandName],
+                    ["generic_name", labelDraft.details.genericName],
+                    ["strength", labelDraft.details.strength],
+                    ["dosage_form", labelDraft.details.dosageForm],
+                  ];
+                  for (const [name, value] of values) {
+                    if (!value.trim()) continue;
+                    const control = form.elements.namedItem(name);
+                    if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement) control.value = value;
+                  }
+                  const wantedCompany = labelDraft.details.companyName.trim().toLowerCase();
+                  if (wantedCompany) {
+                    const control = form.elements.namedItem("company_id");
+                    if (control instanceof HTMLSelectElement) {
+                      const option = Array.from(control.options).find((item) =>
+                        item.value !== "" && item.textContent?.trim().toLowerCase() &&
+                        (item.textContent.trim().toLowerCase().includes(wantedCompany) ||
+                          wantedCompany.includes(item.textContent.trim().toLowerCase()))
+                      );
+                      if (option) control.value = option.value;
+                    }
+                  }
+                  setLabelDraft(null);
+                  setLabelNotice(locale === "bn"
+                    ? "প্রস্তাবিত তথ্য ফর্মে বসানো হয়েছে। সব তথ্য যাচাই করে সংরক্ষণ করুন।"
+                    : "Suggestions copied into the form. Review every field before saving.");
+                }}
+              >
+                {locale === "bn" ? "ফর্মে বসান" : "Use suggestions"}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setLabelDraft(null)}>
+                {locale === "bn" ? "বাতিল" : "Discard"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+      {labelNotice ? <Alert tone="info" title={locale === "bn" ? "ফর্ম আপডেট হয়েছে" : "Form updated"}>{labelNotice}</Alert> : null}
       {state.error ? (
         <Alert tone="danger" title="Couldn't save">
           {state.error}
