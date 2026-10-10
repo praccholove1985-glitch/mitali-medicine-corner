@@ -11,6 +11,8 @@ import { Field } from "@/components/ui/field";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { MoneyText } from "@/components/common/money-text";
 import { MobileBarcodeScanner } from "@/components/common/mobile-barcode-scanner";
+import { MobileCameraOCR } from "@/components/common/mobile-camera-ocr";
+import { productSearchTextFromLabel } from "@/lib/camera-ocr-parsers";
 import { InvoiceCameraImport } from "@/components/purchases/invoice-camera-import";
 import type { Locale } from "@/lib/i18n";
 import { LookupPicker } from "@/components/purchases/lookup-picker";
@@ -467,11 +469,25 @@ function LineEditor({
               emptyText="No medicine matches."
             />
           </Field>
-          <div className="mt-2 flex justify-start">
+          <div className="mt-2 flex flex-wrap justify-start gap-2">
             <MobileBarcodeScanner
               locale={locale}
-              label={locale === "bn" ? "মোবাইল দিয়ে পণ্য স্ক্যান" : "Scan item with phone"}
+              label={locale === "bn" ? "বারকোড স্ক্যান" : "Scan barcode"}
               onDetected={handleScannedBarcode}
+            />
+            <MobileCameraOCR
+              mode="product"
+              locale={locale}
+              label={locale === "bn" ? "লেখা স্ক্যান" : "Scan label text"}
+              onExtracted={(rawText) => {
+                const searchText = productSearchTextFromLabel(rawText);
+                if (!searchText) {
+                  setScanMessage({ code: locale === "bn" ? "পণ্যের নাম পড়া যায়নি" : "Could not read product name", kind: "failed" });
+                  return;
+                }
+                setScanMessage(null);
+                onChange({ medicine: null, medQuery: searchText });
+              }}
             />
           </div>
           {scanMessage ? (
