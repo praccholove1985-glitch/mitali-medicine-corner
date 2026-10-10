@@ -22,6 +22,7 @@ import { formatDate } from "@/lib/dates";
 import { cartReducer, linesFromDraft, toApiItems, totalUnits, type CartLine } from "@/lib/pos/cart";
 import { cn } from "@/lib/utils";
 import type { PosCustomer, PosMedicine } from "@/server/db/pos";
+import type { Locale } from "@/lib/i18n";
 import type { ActionFailure, CompleteSaleResult, CustomerResult, DraftResult } from "@/app/(app)/pos/actions";
 
 export type PosActions = {
@@ -33,13 +34,14 @@ export type PosActions = {
 
 type Props = {
   actions: PosActions;
+  locale: Locale;
   /** Customer search needs customer.view; without it the till sells to walk-ins only. */
   canPickCustomer: boolean;
   /** Where to go after a sale. Defaults to the invoice page. */
   onSaleComplete?: (sale: { saleId: string; invoiceNo: string }) => void;
 };
 
-export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props) {
+export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }: Props) {
   const router = useRouter();
   const searchId = useId();
   const listId = `${searchId}-results`;
@@ -107,7 +109,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
   function addMedicine(m: PosMedicine) {
     if (m.sellableQty <= 0) {
       setScanError(null);
-      setAnnounce(m.name + " is out of stock.");
+      setAnnounce(locale === "bn" ? m.name + " এর স্টক নেই।" : m.name + " is out of stock.");
       return;
     }
     dispatch({
@@ -133,7 +135,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
         nearestExpiry: m.nearestExpiry,
       },
     });
-    setAnnounce("Added " + m.name + " to the sale list.");
+    setAnnounce(locale === "bn" ? m.name + " বিক্রয় তালিকায় যোগ হয়েছে।" : "Added " + m.name + " to the sale list.");
     setLastAdded(m);
     setScanError(null);
     setSaleError(null);
@@ -194,7 +196,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
           'No exact match for barcode/SKU "' + scannedCode +
           '". Nothing was added. Save this barcode in the correct medicine catalogue record first.'
         );
-        setAnnounce("Barcode not linked to a medicine. No item was added.");
+        setAnnounce(locale === "bn" ? "বারকোডটি কোনো ওষুধের সঙ্গে যুক্ত নয়। কিছু যোগ করা হয়নি।" : "Barcode not linked to a medicine. No item was added.");
         return;
       }
 
@@ -273,8 +275,8 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
             aria-expanded={query.trim() !== ""}
             aria-controls={listId}
             aria-activedescendant={search.items[active] ? `${searchId}-opt-${active}` : undefined}
-            aria-label="Search by name, generic, brand, company, barcode or SKU. Scan a barcode and press Enter to add."
-            placeholder="Scan a barcode or type a medicine name"
+            aria-label={locale === "bn" ? "নাম, জেনেরিক, ব্র্যান্ড, কোম্পানি, বারকোড বা SKU দিয়ে খুঁজুন। স্ক্যান করে এন্টার চাপলে যোগ হবে।" : "Search by name, generic, brand, company, barcode or SKU. Scan a barcode and press Enter to add."}
+            placeholder={locale === "bn" ? "বারকোড স্ক্যান করুন বা ওষুধের নাম লিখুন" : "Scan a barcode or type a medicine name"}
             value={query}
             onChange={(e) => {
               const value = e.target.value;
@@ -305,9 +307,9 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
                   setQuery(code);
                   setScanError(
                     'No exact match for barcode/SKU "' + code +
-                    '". Nothing was added. Save this code to the correct product in the catalogue first.'
+                    '". " + (locale === "bn" ? "কিছু যোগ করা হয়নি। আগে এই বারকোডটি ক্যাটালগের সঠিক পণ্যে সংরক্ষণ করুন।" : "Nothing was added. Save this code to the correct product in the catalogue first.")
                   );
-                  setAnnounce("Barcode not linked to a product. No item was added.");
+                  setAnnounce(locale === "bn" ? "বারকোডটি কোনো পণ্যের সঙ্গে যুক্ত নয়। কিছু যোগ করা হয়নি।" : "Barcode not linked to a product. No item was added.");
                 }, 140);
               }
             }}
@@ -342,8 +344,8 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
           <Card className="mb-3 border-success/30 bg-success-soft/35">
             <CardContent className="flex flex-col gap-2 p-3.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-success-text">Added to sale</p>
-                <Badge tone="success">Ready</Badge>
+                <p className="text-xs font-semibold uppercase tracking-wide text-success-text">{locale === "bn" ? "বিক্রয় তালিকায় যোগ হয়েছে" : "Added to sale"}</p>
+                <Badge tone="success">{locale === "bn" ? "প্রস্তুত" : "Ready"}</Badge>
               </div>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -352,27 +354,27 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
                     {[lastAdded.genericName, lastAdded.brandName, lastAdded.dosageForm, lastAdded.companyName].filter(Boolean).join(" · ") || "Product details"}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Sell unit: {lastAdded.unit}{lastAdded.packSize > 1 ? ` · pack size: ${lastAdded.packSize}` : ""}
+                    {locale === "bn" ? "বিক্রয় একক" : "Sell unit"}: {lastAdded.unit}{lastAdded.packSize > 1 ? ` · ${locale === "bn" ? "প্যাকের পরিমাণ" : "pack size"}: ${lastAdded.packSize}` : ""}
                   </p>
                 </div>
                 <div className="shrink-0 text-right">
                   {lastAdded.salePrice !== null ? <MoneyText amount={lastAdded.salePrice} fractionDigits={2} className="text-lg font-semibold" /> : <span className="text-xs text-danger-text">Price not set</span>}
-                  {lastAdded.mrp !== null ? <p className="text-xs text-muted-foreground">MRP <MoneyText amount={lastAdded.mrp} fractionDigits={2} className="inline" /></p> : null}
+                  {lastAdded.mrp !== null ? <p className="text-xs text-muted-foreground">{locale === "bn" ? "এমআরপি" : "MRP"} <MoneyText amount={lastAdded.mrp} fractionDigits={2} className="inline" /></p> : null}
                 </div>
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-success/15 pt-2 text-xs text-muted-foreground">
-                {lastAdded.barcode ? <span>Barcode: {lastAdded.barcode}</span> : null}
+                {lastAdded.barcode ? <span>{locale === "bn" ? "বারকোড" : "Barcode"}: {lastAdded.barcode}</span> : null}
                 {lastAdded.sku ? <span>SKU: {lastAdded.sku}</span> : null}
-                <span>Available: {lastAdded.sellableQty.toLocaleString("en-BD")} {lastAdded.unit}</span>
-                <span>{lastAdded.batchCount} sellable batch{lastAdded.batchCount === 1 ? "" : "es"}</span>
-                {lastAdded.nearestExpiry ? <span>Next expiry: {formatDate(lastAdded.nearestExpiry)}</span> : null}
+                <span>{locale === "bn" ? "মজুত" : "Available"}: {lastAdded.sellableQty.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD")} {lastAdded.unit}</span>
+                <span>{lastAdded.batchCount.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD")} {locale === "bn" ? "টি বিক্রয়যোগ্য ব্যাচ" : `sellable batch${lastAdded.batchCount === 1 ? "" : "es"}`}</span>
+                {lastAdded.nearestExpiry ? <span>{locale === "bn" ? "পরবর্তী মেয়াদ" : "Next expiry"}: {formatDate(lastAdded.nearestExpiry)}</span> : null}
               </div>
             </CardContent>
           </Card>
         ) : null}
 
         {scanError ? (
-          <Alert tone="warning" title="Barcode not linked">
+          <Alert tone="warning" title={locale === "bn" ? "বারকোড যুক্ত করা নেই" : "Barcode not linked"}>
             <p>{scanError}</p>
             <Link
               href={`/medicines/new?barcode=${encodeURIComponent(query)}`}
@@ -388,16 +390,16 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
             <Card>
               <EmptyState
                 icon={Search}
-                title="Ready to sell"
-                description="Scan a barcode, or type part of a name, generic, brand, company or SKU. Press Enter to add the top result."
+                title={locale === "bn" ? "বিক্রয়ের জন্য প্রস্তুত" : "Ready to sell"}
+                description={locale === "bn" ? "বারকোড স্ক্যান করুন, অথবা নাম, জেনেরিক, ব্র্যান্ড, কোম্পানি কিংবা SKU লিখুন। পণ্য যোগ করতে এন্টার চাপুন বা ফলাফলে ক্লিক করুন।" : "Scan a barcode, or type part of a name, generic, brand, company or SKU. Press Enter to add the top result."}
               />
             </Card>
           ) : search.status === "error" ? (
-            <Alert tone="danger" title="Search failed">
+            <Alert tone="danger" title={locale === "bn" ? "খোঁজ করা যায়নি" : "Search failed"}>
               {search.message}
             </Alert>
           ) : (
-            <ul id={listId} role="listbox" aria-label="Search results" className="flex flex-col gap-2">
+            <ul id={listId} role="listbox" aria-label={locale === "bn" ? "খোঁজের ফলাফল" : "Search results"} className="flex flex-col gap-2">
               {search.status === "loading" && search.items.length === 0
                 ? [0, 1, 2].map((i) => <Skeleton key={i} className="h-[4.5rem]" />)
                 : null}
@@ -427,13 +429,13 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
                           <span className="text-base font-semibold">{m.name}</span>
                           {m.strength ? <span className="text-sm text-muted-foreground">{m.strength}</span> : null}
                           {m.prescriptionRequired ? <Badge tone="info">Rx</Badge> : null}
-                          {m.exactMatch ? <Badge tone="primary">Barcode match</Badge> : null}
+                          {m.exactMatch ? <Badge tone="primary">{locale === "bn" ? "বারকোড মিলেছে" : "Barcode match"}</Badge> : null}
                         </span>
                         <span className="truncate text-xs text-muted-foreground">
                           {[m.genericName, m.brandName, m.dosageForm, m.companyName].filter(Boolean).join(" · ") || "—"}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          Sell unit: {m.unit}{m.packSize > 1 ? ` · pack size: ${m.packSize}` : ""}
+                          {locale === "bn" ? "বিক্রয় একক" : "Sell unit"}: {m.unit}{m.packSize > 1 ? ` · ${locale === "bn" ? "প্যাকের পরিমাণ" : "pack size"}: ${m.packSize}` : ""}
                         </span>
                         <span className="truncate text-[11px] text-muted-foreground">
                           {[m.barcode ? `Barcode: ${m.barcode}` : null, m.sku ? `SKU: ${m.sku}` : null].filter(Boolean).join(" · ")}
@@ -443,14 +445,14 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
                         {out ? (
                           <span className="inline-flex items-center gap-1 text-sm font-medium text-danger-text">
                             <PackageX className="size-4" aria-hidden />
-                            Out of stock
+                            {locale === "bn" ? "স্টক নেই" : "Out of stock"}
                           </span>
                         ) : (
                           <>
                             {m.salePrice !== null ? (
                               <MoneyText amount={m.salePrice} fractionDigits={2} className="text-lg font-semibold" />
                             ) : (
-                              <span className="text-sm text-muted-foreground">Price not set</span>
+                              <span className="text-sm text-muted-foreground">{locale === "bn" ? "দাম দেওয়া নেই" : "Price not set"}</span>
                             )}
                             {m.mrp !== null ? <span className="text-[11px] text-muted-foreground">MRP <MoneyText amount={m.mrp} fractionDigits={2} className="inline" /></span> : null}
                             <span className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -467,7 +469,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
               })}
               {search.status === "ready" && search.items.length === 0 ? (
                 <li className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-                  Nothing matches “{query.trim()}”. Check the spelling, or try the generic name, company, barcode or SKU.
+                  {locale === "bn" ? `“${query.trim()}” মেলেনি। বানান পরীক্ষা করুন, অথবা জেনেরিক, কোম্পানি, বারকোড বা SKU দিয়ে খুঁজুন।` : `Nothing matches “${query.trim()}”. Check the spelling, or try the generic name, company, barcode or SKU.`}
                 </li>
               ) : null}
             </ul>
@@ -533,7 +535,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
                               {[line.genericName, line.brandName, line.dosageForm, line.companyName].filter(Boolean).join(" · ")}
                             </p>
                           ) : null}
-                          {line.unit ? <p className="text-xs text-muted-foreground">Sell unit: {line.unit}{(line.packSize ?? 1) > 1 ? ` · pack size: ${line.packSize}` : ""}</p> : null}
+                          {line.unit ? <p className="text-xs text-muted-foreground">{locale === "bn" ? "বিক্রয় একক" : "Sell unit"}: {line.unit}{(line.packSize ?? 1) > 1 ? ` · ${locale === "bn" ? "প্যাকের পরিমাণ" : "pack size"}: ${line.packSize}` : ""}</p> : null}
                           {line.barcode || line.sku ? (
                             <p className="mt-0.5 break-all text-[11px] text-muted-foreground">
                               {[line.barcode ? `Barcode: ${line.barcode}` : null, line.sku ? `SKU: ${line.sku}` : null].filter(Boolean).join(" · ")}
@@ -541,8 +543,8 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
                           ) : null}
                           {line.salePrice ? <p className="text-xs text-muted-foreground">{line.batchCount && line.batchCount > 1 ? "First-expiry batch price" : "Unit price"} <MoneyText amount={line.salePrice} fractionDigits={2} className="inline" /></p> : null}
                           {line.mrp ? <p className="text-xs text-muted-foreground">MRP <MoneyText amount={line.mrp} fractionDigits={2} className="inline" /></p> : null}
-                          {line.sellableQty !== undefined ? <p className="text-xs text-muted-foreground">Available stock: {line.sellableQty}</p> : null}
-                          {line.nearestExpiry ? <p className="text-xs text-muted-foreground">Next expiry: {formatDate(line.nearestExpiry)}</p> : null}
+                          {line.sellableQty !== undefined ? <p className="text-xs text-muted-foreground">{locale === "bn" ? "মজুত আছে" : "Available stock"}: {line.sellableQty}</p> : null}
+                          {line.nearestExpiry ? <p className="text-xs text-muted-foreground">{locale === "bn" ? "পরবর্তী মেয়াদ" : "Next expiry"}: {formatDate(line.nearestExpiry)}</p> : null}
                           {line.batchLabel ? <p className="text-xs text-muted-foreground">Batch {line.batchLabel}</p> : null}
                           {priced && priced.batches > 1 ? (
                             <p className="text-xs text-muted-foreground">Taken from {priced.batches} batches</p>
