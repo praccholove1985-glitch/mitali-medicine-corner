@@ -14,8 +14,10 @@ export type CartLine = {
   name?: string;
   strength?: string | null;
   unit?: string;
+  packSize?: number;
   prescriptionRequired?: boolean;
   genericName?: string | null;
+  brandName?: string | null;
   dosageForm?: string | null;
   companyName?: string | null;
   barcode?: string | null;
