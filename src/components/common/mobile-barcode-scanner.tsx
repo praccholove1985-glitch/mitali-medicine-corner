@@ -38,10 +38,16 @@ function loadScannerLibrary(): Promise<ZXingBrowser> {
       const finish = () => {
         const api = (window as ZXingWindow).ZXingBrowser;
         if (api?.BrowserMultiFormatReader) resolve(api);
-        else reject(new Error("The camera scanner could not load. Check your internet connection and try again."));
+        else {
+          script.remove();
+          reject(new Error("The camera scanner could not load. Check your internet connection and try again."));
+        }
       };
       script.addEventListener("load", finish, { once: true });
-      script.addEventListener("error", () => reject(new Error("The camera scanner could not load. Check your internet connection and try again.")), { once: true });
+      script.addEventListener("error", () => {
+        script.remove();
+        reject(new Error("The camera scanner could not load. Check your internet connection and try again."));
+      }, { once: true });
       if (!existing) {
         script.src = "https://unpkg.com/@zxing/browser@0.2.1/umd/zxing-browser.min.js";
         script.async = true;
