@@ -518,6 +518,39 @@ const commonMessages: Record<string, readonly [string, string]> = {
   "common.Expiry": ["Expiry", "মেয়াদ"],
   "common.Batch": ["Batch", "ব্যাচ"],
   "common.Barcode": ["Barcode", "বারকোড"],
+  "common.Medicine": ["Medicine", "ওষুধ"],
+  "common.Generic": ["Generic", "জেনেরিক"],
+  "common.Strength": ["Strength", "শক্তি"],
+  "common.Company": ["Company", "কোম্পানি"],
+  "common.Manufacturer": ["Manufacturer", "প্রস্তুতকারক"],
+  "common.Category": ["Category", "ক্যাটাগরি"],
+  "common.Form": ["Form", "ফর্ম"],
+  "common.SKU": ["SKU", "SKU"],
+  "common.Stock": ["Stock", "স্টক"],
+  "common.Sale price": ["Sale price", "বিক্রয়মূল্য"],
+  "common.Selling price": ["Selling price", "বিক্রয়মূল্য"],
+  "common.Cost": ["Cost", "ক্রয়মূল্য"],
+  "common.MRP": ["MRP", "এমআরপি"],
+  "common.Due": ["Due", "বকেয়া"],
+  "common.Paid": ["Paid", "পরিশোধিত"],
+  "common.Method": ["Method", "পদ্ধতি"],
+  "common.Created": ["Created", "তৈরি হয়েছে"],
+  "common.Customer name": ["Customer name", "গ্রাহকের নাম"],
+  "common.Supplier name": ["Supplier name", "সরবরাহকারীর নাম"],
+  "common.Expiry date": ["Expiry date", "মেয়াদ শেষের তারিখ"],
+  "common.Batch number": ["Batch number", "ব্যাচ নম্বর"],
+  "common.Purchase date": ["Purchase date", "ক্রয়ের তারিখ"],
+  "common.Sale date": ["Sale date", "বিক্রয়ের তারিখ"],
+  "common.Invoice number": ["Invoice number", "ইনভয়েস নম্বর"],
+  "common.Payment status": ["Payment status", "পেমেন্টের অবস্থা"],
+  "common.Outstanding": ["Outstanding", "বকেয়া"],
+  "common.Total due": ["Total due", "মোট বকেয়া"],
+  "common.Unit": ["Unit", "ইউনিট"],
+  "common.Days": ["Days", "দিন"],
+  "common.Page": ["Page", "পৃষ্ঠা"],
+  "common.of": ["of", "এর মধ্যে"],
+  "common.total": ["total", "মোট"],
+
   "common.The catalogue of everything the shop sells. Stock lives in batches, shown on each medicine.": ["The catalogue of everything the shop sells. Stock lives in batches, shown on each medicine.", "দোকানে বিক্রি হওয়া সব ওষুধের তালিকা। স্টক প্রতিটি ওষুধের ব্যাচ অনুযায়ী দেখানো হয়."],
 };
 
@@ -525,10 +558,11 @@ export function localizeText(locale: Locale, value: string): string {
   if (locale !== "bn") return value;
   const direct = commonMessages["common." + value];
   if (direct) return direct[1];
-  const key = (Object.keys(messages) as TranslationKey[]).find((candidate) => messages[candidate][0] === value);
+  const normalized = value.trim().toLowerCase();
+  const key = (Object.keys(messages) as TranslationKey[]).find((candidate) => messages[candidate][0].trim().toLowerCase() === normalized);
   if (key) return messages[key][1];
   for (const entry of Object.values(commonMessages)) {
-    if (entry[0] === value) return entry[1];
+    if (entry[0].trim().toLowerCase() === normalized) return entry[1];
   }
   return value;
 }
