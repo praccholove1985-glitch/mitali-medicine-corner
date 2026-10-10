@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLocale } from "@/lib/locale";
 import Link from "next/link";
 import { Building2, HandCoins, Truck, Wallet } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -133,6 +134,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
         </div>
         <div className="border-t">
           <DataTable
+            locale={locale}
             caption="Suppliers and what you owe them"
             columns={columns}
             rows={items}
