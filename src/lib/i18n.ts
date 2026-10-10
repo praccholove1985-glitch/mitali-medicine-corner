@@ -451,10 +451,88 @@ export type TranslationKey = keyof typeof messages;
 
 export function t(locale: Locale, key: TranslationKey): string {
   const message = messages[key];
-  return message ? message[locale] : key;
+  return message ? message[locale === "bn" ? 1 : 0] : key;
+}
+
+const commonMessages: Record<string, readonly [string, string]> = {
+  "common.Sell": ["Sell", "বিক্রয়"],
+  "common.Medicines": ["Medicines", "ওষুধ"],
+  "common.Stock": ["Stock", "স্টক"],
+  "common.Purchases": ["Purchases", "ক্রয়"],
+  "common.Customers": ["Customers", "গ্রাহক"],
+  "common.Suppliers": ["Suppliers", "সরবরাহকারী"],
+  "common.Returns": ["Returns", "ফেরত"],
+  "common.Finance": ["Finance", "আর্থিক হিসাব"],
+  "common.Reports": ["Reports", "রিপোর্ট"],
+  "common.Staff": ["Staff", "কর্মী"],
+  "common.Settings": ["Settings", "সেটিংস"],
+  "common.Nothing here yet": ["Nothing here yet", "এখনো এখানে কিছু নেই"],
+  "common.Something went wrong": ["Something went wrong", "একটি সমস্যা হয়েছে"],
+  "common.Try again": ["Try again", "আবার চেষ্টা করুন"],
+  "common.No results": ["No results", "কোনো ফলাফল নেই"],
+  "common.Previous": ["Previous", "আগের"],
+  "common.Next": ["Next", "পরের"],
+  "common.No expiry": ["No expiry", "মেয়াদ দেওয়া নেই"],
+  "common.Expired": ["Expired", "মেয়াদোত্তীর্ণ"],
+  "common.In date": ["In date", "মেয়াদ আছে"],
+  "common.Active": ["Active", "সক্রিয়"],
+  "common.Inactive": ["Inactive", "নিষ্ক্রিয়"],
+  "common.Paid": ["Paid", "পরিশোধিত"],
+  "common.Partial": ["Partial", "আংশিক পরিশোধ"],
+  "common.Draft": ["Draft", "খসড়া"],
+  "common.Cancelled": ["Cancelled", "বাতিল"],
+  "common.Completed": ["Completed", "সম্পন্ন"],
+  "common.Loading": ["Loading", "লোড হচ্ছে"],
+  "common.Reference": ["Reference", "রেফারেন্স"],
+  "common.In stock": ["In stock", "স্টকে আছে"],
+  "common.Low stock": ["Low stock", "কম স্টক"],
+  "common.Out of stock": ["Out of stock", "স্টক শেষ"],
+  "common.Expired batch": ["Expired batch", "মেয়াদোত্তীর্ণ ব্যাচ"],
+  "common.Reorder level": ["Reorder level", "পুনরায় অর্ডারের সীমা"],
+  "common.Search": ["Search", "খুঁজুন"],
+  "common.Cancel": ["Cancel", "বাতিল"],
+  "common.Save": ["Save", "সংরক্ষণ"],
+  "common.Add": ["Add", "যোগ করুন"],
+  "common.Edit": ["Edit", "সম্পাদনা"],
+  "common.Delete": ["Delete", "মুছে ফেলুন"],
+  "common.Close": ["Close", "বন্ধ করুন"],
+  "common.Submit": ["Submit", "জমা দিন"],
+  "common.Export": ["Export", "এক্সপোর্ট"],
+  "common.Filter": ["Filter", "ফিল্টার"],
+  "common.All": ["All", "সব"],
+  "common.Status": ["Status", "অবস্থা"],
+  "common.Date": ["Date", "তারিখ"],
+  "common.Amount": ["Amount", "পরিমাণ"],
+  "common.Total": ["Total", "মোট"],
+  "common.Quantity": ["Quantity", "পরিমাণ"],
+  "common.Price": ["Price", "দাম"],
+  "common.Name": ["Name", "নাম"],
+  "common.Phone": ["Phone", "ফোন"],
+  "common.Email": ["Email", "ইমেইল"],
+  "common.Actions": ["Actions", "করণীয়"],
+  "common.Invoice": ["Invoice", "ইনভয়েস"],
+  "common.Customer": ["Customer", "গ্রাহক"],
+  "common.Supplier": ["Supplier", "সরবরাহকারী"],
+  "common.Payment": ["Payment", "পেমেন্ট"],
+  "common.Balance": ["Balance", "ব্যালেন্স"],
+  "common.Expiry": ["Expiry", "মেয়াদ"],
+  "common.Batch": ["Batch", "ব্যাচ"],
+  "common.Barcode": ["Barcode", "বারকোড"],
+};
+
+export function localizeText(locale: Locale, value: string): string {
+  if (locale !== "bn") return value;
+  const direct = commonMessages["common." + value];
+  if (direct) return direct[1];
+  const key = (Object.keys(messages) as TranslationKey[]).find((candidate) => messages[candidate][0] === value);
+  if (key) return messages[key][1];
+  for (const entry of Object.values(commonMessages)) {
+    if (entry[0] === value) return entry[1];
+  }
+  return value;
 }
 
 export function navText(locale: Locale, value: string): string {
-  const key = (Object.keys(messages) as TranslationKey[]).find((candidate) => candidate.startsWith("nav.") && messages[candidate].en === value);
-  return key ? t(locale, key) : value;
+  const key = (Object.keys(messages) as TranslationKey[]).find((candidate) => candidate.startsWith("nav.") && messages[candidate][0] === value);
+  return localizeText(locale, value);
 }
