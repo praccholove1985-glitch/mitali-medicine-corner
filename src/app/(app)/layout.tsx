@@ -2,9 +2,10 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { NoAccess } from "@/components/auth/no-access";
 import { getSessionContext } from "@/server/session";
+import { getLocale } from "@/lib/locale";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
-  const session = await getSessionContext();
+  const [session, locale] = await Promise.all([getSessionContext(), getLocale()]);
 
   // The proxy already redirects, but access is decided here as well: never rely
   // on the proxy alone.
@@ -14,6 +15,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   return (
     <AppShell
+      locale={locale}
       permissions={session.permissions}
       branchName={session.branch.name}
       user={{ name: session.user.fullName, email: session.user.email, role: session.role }}
