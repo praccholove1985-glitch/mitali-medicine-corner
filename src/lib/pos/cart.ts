@@ -15,6 +15,12 @@ export type CartLine = {
   strength?: string | null;
   unit?: string;
   prescriptionRequired?: boolean;
+  genericName?: string | null;
+  dosageForm?: string | null;
+  companyName?: string | null;
+  barcode?: string | null;
+  sku?: string | null;
+  mrp?: string | null;
   quantity: number;
   discountType: DiscountType;
   /** Text as typed; the server parses it. */
@@ -30,6 +36,12 @@ export type CartMedicine = {
   strength?: string | null;
   unit?: string;
   prescriptionRequired?: boolean;
+  genericName?: string | null;
+  dosageForm?: string | null;
+  companyName?: string | null;
+  barcode?: string | null;
+  sku?: string | null;
+  mrp?: string | null;
 };
 
 export type CartAction =
@@ -71,6 +83,12 @@ export function cartReducer(lines: CartLine[], action: CartAction): CartLine[] {
           strength: action.medicine.strength ?? null,
           unit: action.medicine.unit,
           prescriptionRequired: action.medicine.prescriptionRequired,
+          genericName: action.medicine.genericName ?? null,
+          dosageForm: action.medicine.dosageForm ?? null,
+          companyName: action.medicine.companyName ?? null,
+          barcode: action.medicine.barcode ?? null,
+          sku: action.medicine.sku ?? null,
+          mrp: action.medicine.mrp ?? null,
           quantity: add,
           discountType: "NONE",
           discountValue: "",
