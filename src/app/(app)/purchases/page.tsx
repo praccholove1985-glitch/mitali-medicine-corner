@@ -22,6 +22,7 @@ const first = (value: string | string[] | undefined) => (Array.isArray(value) ? 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function PurchasesPage({ searchParams }: Props) {
+  const locale = await getLocale();
   const session = await requireSession();
   const params = await searchParams;
 
