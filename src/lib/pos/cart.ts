@@ -21,6 +21,8 @@ export type CartLine = {
   barcode?: string | null;
   sku?: string | null;
   mrp?: string | null;
+  salePrice?: string | null;
+  batchCount?: number;
   quantity: number;
   discountType: DiscountType;
   /** Text as typed; the server parses it. */
@@ -42,6 +44,8 @@ export type CartMedicine = {
   barcode?: string | null;
   sku?: string | null;
   mrp?: string | null;
+  salePrice?: string | null;
+  batchCount?: number;
 };
 
 export type CartAction =
@@ -89,6 +93,8 @@ export function cartReducer(lines: CartLine[], action: CartAction): CartLine[] {
           barcode: action.medicine.barcode ?? null,
           sku: action.medicine.sku ?? null,
           mrp: action.medicine.mrp ?? null,
+          salePrice: action.medicine.salePrice ?? null,
+          batchCount: action.medicine.batchCount,
           quantity: add,
           discountType: "NONE",
           discountValue: "",
