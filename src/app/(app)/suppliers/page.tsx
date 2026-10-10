@@ -31,6 +31,7 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? "";
 
 export default async function SuppliersPage({ searchParams }: Props) {
+  const locale = await getLocale();
   const session = await requireSession();
   const params = await searchParams;
 
