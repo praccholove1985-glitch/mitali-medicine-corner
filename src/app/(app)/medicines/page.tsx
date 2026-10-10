@@ -26,6 +26,7 @@ function first(value: string | string[] | undefined): string {
 }
 
 export default async function MedicinesPage({ searchParams }: Props) {
+  const locale = await getLocale();
   const session = await requireSession();
   if (!session.permissions.includes("medicine.view")) return <Forbidden section="medicines" />;
 
