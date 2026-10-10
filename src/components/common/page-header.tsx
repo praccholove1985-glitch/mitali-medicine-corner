@@ -1,5 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { getLocale } from "@/lib/locale";
+import { localizeText } from "@/lib/i18n";
 
 type PageHeaderProps = {
   title: string;
@@ -11,13 +13,17 @@ type PageHeaderProps = {
   className?: string;
 };
 
-function PageHeader({
+async function PageHeader({
   title,
   description,
   eyebrow,
   actions,
   className,
 }: PageHeaderProps) {
+  const locale = await getLocale();
+  const displayTitle = localizeText(locale, title);
+  const displayEyebrow = eyebrow ? localizeText(locale, eyebrow) : undefined;
+  const displayDescription = typeof description === "string" ? localizeText(locale, description) : description;
   return (
     <header
       className={cn(
@@ -28,15 +34,15 @@ function PageHeader({
       <div className="min-w-0">
         {eyebrow ? (
           <p className="text-xs font-semibold tracking-wide text-primary-text uppercase">
-            {eyebrow}
+            {displayEyebrow}
           </p>
         ) : null}
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          {title}
+          {displayTitle}
         </h1>
         {description ? (
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            {description}
+            {displayDescription}
           </p>
         ) : null}
       </div>
