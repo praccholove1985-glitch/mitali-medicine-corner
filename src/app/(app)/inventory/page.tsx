@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLocale } from "@/lib/locale";
 import Link from "next/link";
 import { AlertTriangle, Boxes, CalendarClock, PackageSearch, Pill, Wallet } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -206,6 +207,7 @@ export default async function StockPage({ searchParams }: Props) {
         </div>
         <div className="border-t">
           <DataTable
+            locale={locale}
             caption="Stock by medicine"
             columns={columns}
             rows={items}
