@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/common/empty-state";
+import { MobileBarcodeScanner } from "@/components/common/mobile-barcode-scanner";
 import { MoneyText } from "@/components/common/money-text";
 import { BatchPickerDialog } from "@/components/pos/batch-picker-dialog";
 import { CustomerDialog } from "@/components/pos/customer-dialog";
@@ -206,6 +207,32 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
     }
   }
 
+  async function handleCameraBarcode(rawValue: string) {
+    const code = normalizeScannerValue(rawValue);
+    if (!code) return;
+    setQuery(code);
+    setScanError(null);
+    setLastAdded(null);
+    setActive(0);
+    const items = await searchNow(code);
+    const match = items.find((item) =>
+      item.barcode?.trim().toLowerCase() === code.toLowerCase() ||
+      item.sku?.trim().toLowerCase() === code.toLowerCase()
+    );
+    if (match) {
+      addMedicine(match);
+      return;
+    }
+    setQuery(code);
+    setScanError(
+      'No exact match for barcode/SKU "' + code + '". ' +
+      (locale === "bn"
+        ? "কিছু যোগ করা হয়নি। আগে এই বারকোডটি ক্যাটালগের সঠিক পণ্যে সংরক্ষণ করুন।"
+        : "Nothing was added. Save this code to the correct product in the catalogue first.")
+    );
+    setAnnounce(locale === "bn" ? "বারকোডটি কোনো পণ্যের সঙ্গে যুক্ত নয়। কিছু যোগ করা হয়নি।" : "Barcode not linked to a product. No item was added.");
+  }
+
   function openPayment() {
     requestId.current = crypto.randomUUID();
     setPayKey((k) => k + 1);
@@ -267,6 +294,9 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
       {/* ---------- Search ---------- */}
       <section aria-label="Find medicines" className="min-w-0">
+        <div className="mb-2 flex justify-end">
+          <MobileBarcodeScanner locale={locale} onDetected={handleCameraBarcode} />
+        </div>
         <div className="relative">
           <ScanBarcode className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
