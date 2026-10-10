@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { BrandMark, BrandName } from "@/components/shell/brand";
 import { NavList } from "@/components/shell/nav-list";
+import type { Locale } from "@/lib/i18n";
 
 type SidebarProps = {
   permissions: readonly string[];
   branchName: string;
+  locale: Locale;
 };
 
 /** Fixed rail on tablet (icons), full sidebar on desktop. Hidden on phones. */
-export function Sidebar({ permissions, branchName }: SidebarProps) {
+export function Sidebar({ permissions, branchName, locale }: SidebarProps) {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden print:hidden w-16 flex-col border-r border-sidebar-border bg-sidebar md:flex lg:w-64">
       <Link
@@ -20,7 +22,7 @@ export function Sidebar({ permissions, branchName }: SidebarProps) {
         <BrandName compact />
       </Link>
       <div className="flex-1 overflow-y-auto pt-2">
-        <NavList variant="rail" permissions={permissions} />
+        <NavList variant="rail" permissions={permissions} locale={locale} />
       </div>
       <p
         className="hidden truncate border-t border-sidebar-border px-5 py-3 text-xs text-sidebar-muted lg:block"
