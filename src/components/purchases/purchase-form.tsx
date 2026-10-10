@@ -11,6 +11,7 @@ import { Field } from "@/components/ui/field";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { MoneyText } from "@/components/common/money-text";
 import { MobileBarcodeScanner } from "@/components/common/mobile-barcode-scanner";
+import { InvoiceCameraImport } from "@/components/purchases/invoice-camera-import";
 import type { Locale } from "@/lib/i18n";
 import { LookupPicker } from "@/components/purchases/lookup-picker";
 import { useLookup, usePurchaseQuote } from "@/components/purchases/hooks";
@@ -167,6 +168,37 @@ export function PurchaseForm({ requestId, today, initialSupplier, createPurchase
           ) : null}
         </Alert>
       ) : null}
+
+      <InvoiceCameraImport
+        locale={locale}
+        today={today}
+        onUseHeader={(scannedInvoiceNumber, scannedInvoiceDate) => {
+          if (scannedInvoiceNumber.trim()) setInvoiceNo(scannedInvoiceNumber.trim().slice(0, 64));
+          if (scannedInvoiceDate && scannedInvoiceDate <= today) setInvoiceDate(scannedInvoiceDate);
+        }}
+        onAddLines={({ invoiceNumber: scannedInvoiceNumber, invoiceDate: scannedInvoiceDate, lines: scannedLines }) => {
+          if (scannedInvoiceNumber.trim()) setInvoiceNo(scannedInvoiceNumber.trim().slice(0, 64));
+          if (scannedInvoiceDate && scannedInvoiceDate <= today) setInvoiceDate(scannedInvoiceDate);
+          const draftLines = scannedLines
+            .filter((line) => line.description.trim())
+            .map((line) => ({
+              ...blankLine(nextKey("l")),
+              medQuery: line.description.trim().slice(0, 100),
+              qty: line.quantity,
+              price: line.unitCost,
+            }));
+          if (draftLines.length === 0) return;
+          setLines((previous) => {
+            const onlyBlankLine = previous.length === 1 &&
+              previous[0].medicine === null &&
+              previous[0].medQuery.trim() === "" &&
+              previous[0].batch.trim() === "" &&
+              previous[0].qty.trim() === "" &&
+              previous[0].price.trim() === "";
+            return onlyBlankLine ? draftLines : [...previous, ...draftLines];
+          });
+        }}
+      />
 
       <Card className="grid gap-4 p-4 sm:grid-cols-2">
         <Field label="Supplier" htmlFor="pf-supplier" required>
