@@ -7,7 +7,14 @@ import { requireSession } from "@/server/session";
 
 export const metadata: Metadata = { title: "Add medicine" };
 
-export default async function NewMedicinePage() {
+type NewMedicinePageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function NewMedicinePage({ searchParams }: NewMedicinePageProps) {
+  const params = await searchParams;
+  const rawBarcode = Array.isArray(params.barcode) ? params.barcode[0] : params.barcode;
+  const initialBarcode = typeof rawBarcode === "string" ? rawBarcode.trim().slice(0, 64) : "";
   const session = await requireSession();
   if (!session.permissions.includes("medicine.edit")) return <Forbidden section="adding medicines" />;
 
@@ -21,6 +28,7 @@ export default async function NewMedicinePage() {
       <div className="max-w-3xl">
         <MedicineForm
           medicine={null}
+          initialBarcode={initialBarcode}
           catalogue={catalogue}
           canEditPrice={canEditPrice}
           purchasePrice={canEditPrice && canSeeCost ? { editable: true, value: null } : null}
