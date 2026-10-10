@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLocale } from "@/lib/locale";
 import Link from "next/link";
 import { FolderTree, PackageSearch, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -134,6 +135,7 @@ export default async function MedicinesPage({ searchParams }: Props) {
         </div>
         <div className="border-t">
           <DataTable
+            locale={locale}
             caption="Medicines"
             columns={columns}
             rows={items}
