@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useReducer, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Minus, PackageX, Plus, ScanBarcode, Search, ShoppingCart, Trash2, X } from "lucide-react";
+import { Minus, PackageX, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -384,7 +384,6 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
             className="h-12 min-w-0 border-0 bg-transparent px-2 pr-9 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:h-14 sm:text-base"
           />
           <span className="pointer-events-none absolute top-1/2 right-2 hidden -translate-y-1/2 text-xs text-muted-foreground sm:block">F2</span>
-          </div>
           {query ? (
             <button
               type="button"
@@ -399,6 +398,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
               <span className="sr-only">Clear search</span>
             </button>
           ) : null}
+          </div>
         </div>
 
         <p className="sr-only" role="status" aria-live="polite">
