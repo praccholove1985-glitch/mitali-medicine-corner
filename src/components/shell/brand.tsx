@@ -1,19 +1,18 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-/** Original capsule-and-cross mark; no third-party artwork. */
+/** Mitali Medicine Corner's supplied brand mark. */
 export function BrandMark({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 32 32"
-      className={cn("size-8", className)}
-      aria-hidden
-      focusable="false"
-    >
-      <rect width="32" height="32" rx="8" fill="var(--primary)" />
-      <rect x="13" y="7" width="6" height="18" rx="3" fill="#fff" />
-      <rect x="7" y="13" width="18" height="6" rx="3" fill="#fff" />
-      <rect x="13" y="13" width="6" height="6" fill="var(--accent)" />
-    </svg>
+    <Image
+      src="/mitali-logo.png"
+      alt=""
+      aria-hidden="true"
+      width={96}
+      height={96}
+      priority
+      className={cn("size-8 shrink-0 object-contain", className)}
+    />
   );
 }
 
