@@ -22,7 +22,69 @@ type TesseractApi = {
     options?: { logger?: (message: { status?: string; progress?: number }) => void },
   ): Promise<OCRResult>;
 };
-type OCRWindow = Window & { Tesseract?: TesseractApi };
+type OCRWindow = Window & {
+  Tesseract?: TesseractApi;
+  ZXingBrowser?: {
+    BrowserMultiFormatReader: new () => {
+      decodeFromCanvas(canvas: HTMLCanvasElement): { getText(): string };
+    };
+  };
+  BarcodeDetector?: new (options?: { formats?: string[] }) => {
+    detect(source: HTMLCanvasElement): Promise<Array<{ rawValue: string }>>;
+  };
+};
+
+let barcodeLibraryPromise: Promise<NonNullable<OCRWindow["ZXingBrowser"]>> | null = null;
+
+async function readBarcodeFromImage(canvas: HTMLCanvasElement): Promise<string | null> {
+  const win = window as OCRWindow;
+  if (win.BarcodeDetector) {
+    try {
+      const detector = new win.BarcodeDetector({
+        formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code", "data_matrix"],
+      });
+      const results = await detector.detect(canvas);
+      const value = results.find((result) => result.rawValue.trim())?.rawValue.trim();
+      if (value) return value;
+    } catch {
+      // Fall back if this browser only supports a subset of barcode formats.
+    }
+  }
+
+  try {
+    if (!win.ZXingBrowser?.BrowserMultiFormatReader) {
+      if (!barcodeLibraryPromise) {
+        barcodeLibraryPromise = new Promise((resolve, reject) => {
+          const existing = document.querySelector<HTMLScriptElement>('script[data-mmc-zxing="true"]');
+          const script = existing ?? document.createElement("script");
+          const finish = () => {
+            const api = (window as OCRWindow).ZXingBrowser;
+            if (api?.BrowserMultiFormatReader) resolve(api);
+            else reject(new Error("Barcode decoder did not load"));
+          };
+          script.addEventListener("load", finish, { once: true });
+          script.addEventListener("error", () => reject(new Error("Barcode decoder did not load")), { once: true });
+          if (!existing) {
+            script.src = "https://unpkg.com/@zxing/browser@0.2.1/umd/zxing-browser.min.js";
+            script.async = true;
+            script.dataset.mmcZxing = "true";
+            document.head.appendChild(script);
+          } else if ((window as OCRWindow).ZXingBrowser) finish();
+        }).catch((error: unknown) => {
+          barcodeLibraryPromise = null;
+          throw error;
+        });
+      }
+      await barcodeLibraryPromise;
+    }
+    const Reader = (window as OCRWindow).ZXingBrowser?.BrowserMultiFormatReader;
+    if (!Reader) return null;
+    return new Reader().decodeFromCanvas(canvas).getText().trim() || null;
+  } catch {
+    // A photo may contain readable label text but no barcode.
+    return null;
+  }
+}
 
 let tesseractPromise: Promise<TesseractApi> | null = null;
 
@@ -88,6 +150,7 @@ function prepareImageForTextRecognition(image: HTMLCanvasElement | HTMLImageElem
 type Props = {
   mode: "product" | "invoice";
   onExtracted: (text: string) => void;
+  onBarcodeDetected?: (code: string) => Promise<boolean> | boolean;
   locale?: Locale;
   label?: string;
   size?: "sm" | "md";
@@ -97,6 +160,7 @@ type Props = {
 export function MobileCameraOCR({
   mode,
   onExtracted,
+  onBarcodeDetected,
   locale = "en",
   label,
   size = "sm",
@@ -110,8 +174,10 @@ export function MobileCameraOCR({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const onExtractedRef = useRef(onExtracted);
+  const onBarcodeDetectedRef = useRef(onBarcodeDetected);
 
   useEffect(() => { onExtractedRef.current = onExtracted; }, [onExtracted]);
+  useEffect(() => { onBarcodeDetectedRef.current = onBarcodeDetected; }, [onBarcodeDetected]);
 
   const isBn = locale === "bn";
   const text = (en: string, bn: string) => isBn ? bn : en;
@@ -172,6 +238,17 @@ export function MobileCameraOCR({
     setError(null);
     setProgress(0);
     try {
+      if (onBarcodeDetectedRef.current) {
+        const code = await readBarcodeFromImage(image as HTMLCanvasElement);
+        if (code) {
+          const handled = await onBarcodeDetectedRef.current(code);
+          if (handled) {
+            setOpen(false);
+            return;
+          }
+        }
+      }
+
       const api = await loadTesseract();
       const preparedImage = prepareImageForTextRecognition(image);
       const result = await api.recognize(preparedImage, "eng", {
