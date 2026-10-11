@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/common/empty-state";
 import { MobileBarcodeScanner } from "@/components/common/mobile-barcode-scanner";
 import { MobileCameraOCR } from "@/components/common/mobile-camera-ocr";
-import { productSearchTextFromLabel } from "@/lib/camera-ocr-parsers";
+import { productSearchTermsFromDetails, suggestProductLabelDetails, type ProductLabelSuggestions } from "@/lib/camera-ocr-parsers";
 import { MoneyText } from "@/components/common/money-text";
 import { BatchPickerDialog } from "@/components/pos/batch-picker-dialog";
 import { CustomerDialog } from "@/components/pos/customer-dialog";
@@ -59,6 +59,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
   const [announce, setAnnounce] = useState("");
   const [scanError, setScanError] = useState<string | null>(null);
   const [lastAdded, setLastAdded] = useState<PosMedicine | null>(null);
+  const [labelScanDraft, setLabelScanDraft] = useState<{ rawText: string; details: ProductLabelSuggestions } | null>(null);
   const scanBurst = useRef<{ lastAt: number; characters: number; timer: ReturnType<typeof setTimeout> | null }>({ lastAt: 0, characters: 0, timer: null });
   const [payOpen, setPayOpen] = useState(false);
   const [payKey, setPayKey] = useState(0);
@@ -69,7 +70,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
   const requestId = useRef<string | null>(null);
 
   const quote = useQuote(lines);
-  const { state: search, searchNow } = useProductSearch(query);
+  const { state: search, searchNow, searchManyNow } = useProductSearch(query);
 
   const ready = quote.status === "ready";
   const grandTotal = ready ? quote.quote.totals.grandTotal : null;
@@ -236,21 +237,42 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
   }
 
   function handleProductLabelText(rawText: string) {
-    const searchText = productSearchTextFromLabel(rawText);
+    const details = suggestProductLabelDetails(rawText);
     setScanError(null);
     setLastAdded(null);
     setActive(0);
-    if (!searchText) {
-      setAnnounce(locale === "bn"
-        ? "পণ্যের লেখা থেকে নাম শনাক্ত করা যায়নি। আরেকটি পরিষ্কার ছবি তুলুন বা নাম লিখে খুঁজুন।"
-        : "Could not identify a product name from the photo. Try a clearer photo or type the name.");
+    setLabelScanDraft({ rawText, details });
+    setAnnounce(locale === "bn"
+      ? "পণ্যের লেখা পড়া হয়েছে। নাম, জেনেরিক, ব্র্যান্ড ও শক্তি যাচাই করুন।"
+      : "Product label text captured. Review the name, generic, brand and strength before searching.");
+  }
+
+  async function searchFromLabelDraft() {
+    if (!labelScanDraft) return;
+    const details = labelScanDraft.details;
+    const terms = productSearchTermsFromDetails(details, labelScanDraft.rawText);
+    const displayQuery = (details.name || details.brandName || details.genericName || terms[0] || "").trim();
+    if (!displayQuery || terms.length === 0) {
+      setScanError(locale === "bn"
+        ? "স্ক্যান করা লেখা থেকে খোঁজার মতো পণ্যের নাম পাওয়া যায়নি। নিচের ঘরে নাম লিখুন।"
+        : "No usable product name was found in the scan. Type a medicine name in the search box.");
       return;
     }
-    // OCR is a search hint, not an identity check: show results for the cashier to confirm.
-    setQuery(searchText);
-    setAnnounce(locale === "bn"
-      ? "প্যাকেটের লেখা পড়া হয়েছে। তালিকা থেকে সঠিক পণ্যটি বেছে নিন।"
-      : "Product text read. Choose the matching catalogue item from the results.");
+
+    setScanError(null);
+    setActive(0);
+    setQuery(displayQuery);
+    setLabelScanDraft(null);
+    const matches = await searchManyNow(terms, displayQuery);
+    if (matches.length === 0) {
+      setAnnounce(locale === "bn"
+        ? "স্ক্যান করা নাম, জেনেরিক, ব্র্যান্ড ও শক্তি দিয়ে কোনো মিল পাওয়া যায়নি। নামের বানান ঠিক করে আবার চেষ্টা করুন।"
+        : "No catalogue match found from the scanned name, generic, brand or strength. Edit the terms and try again.");
+    } else {
+      setAnnounce(locale === "bn"
+        ? "স্ক্যান করা একাধিক তথ্য দিয়ে " + matches.length + "টি সম্ভাব্য মিল পাওয়া গেছে। সঠিক পণ্যটি বেছে নিন।"
+        : matches.length + " possible catalogue matches found from multiple label details. Select the correct product.");
+    }
   }
 
   function openPayment() {
@@ -400,6 +422,63 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
           ) : null}
           </div>
         </div>
+
+        {labelScanDraft ? (
+          <Card className="my-3 border-primary/25 bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">
+                {locale === "bn" ? "স্ক্যান করা ওষুধের তথ্য যাচাই করুন" : "Review scanned medicine details"}
+              </CardTitle>
+              <p className="text-xs leading-5 text-muted-foreground">
+                {locale === "bn"
+                  ? "OCR ভুল পড়তে পারে। নিচের তথ্যগুলো ঠিক করুন। নাম, ব্র্যান্ড, জেনেরিক, শক্তি ও কোম্পানি আলাদাভাবে খোঁজা হবে—পুরো অনুচ্ছেদ একসঙ্গে নয়।"
+                  : "OCR can misread packaging. Correct these fields if needed. Name, brand, generic, strength and company will be searched separately—not as one long phrase."}
+              </p>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <details className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+                <summary className="cursor-pointer text-xs font-semibold">
+                  {locale === "bn" ? "ক্যামেরায় পড়া সম্পূর্ণ লেখা দেখুন" : "Show all text recognized by the camera"}
+                </summary>
+                <pre className="mt-2 max-h-44 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground">{labelScanDraft.rawText}</pre>
+              </details>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {([
+                  ["name", locale === "bn" ? "ওষুধের নাম" : "Product name"],
+                  ["brandName", locale === "bn" ? "ব্র্যান্ডের নাম" : "Brand name"],
+                  ["genericName", locale === "bn" ? "জেনেরিক / উপাদান" : "Generic / active ingredient"],
+                  ["strength", locale === "bn" ? "শক্তি (যেমন 500 mg, 5 mg/5 ml)" : "Strength (e.g. 500 mg, 5 mg/5 ml)"],
+                  ["dosageForm", locale === "bn" ? "ধরন (ট্যাবলেট/সিরাপ)" : "Dosage form"],
+                  ["companyName", locale === "bn" ? "প্রস্তুতকারক / কোম্পানি" : "Manufacturer / company"],
+                ] as Array<[keyof ProductLabelSuggestions, string]>).map(([key, label]) => (
+                  <label key={key} htmlFor={"pos-ocr-" + key} className="flex min-w-0 flex-col gap-1.5 text-xs font-semibold text-foreground">
+                    {label}
+                    <Input
+                      id={"pos-ocr-" + key}
+                      value={labelScanDraft.details[key]}
+                      onChange={(event) => setLabelScanDraft((current) => current ? ({
+                        ...current,
+                        details: { ...current.details, [key]: event.target.value },
+                      }) : current)}
+                      className="h-10 min-w-0 font-normal"
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" onClick={() => { void searchFromLabelDraft(); }}>
+                  {locale === "bn" ? "এই তথ্য দিয়ে পণ্য খুঁজুন" : "Search catalogue with these details"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setLabelScanDraft(null)}>
+                  {locale === "bn" ? "বাতিল" : "Cancel"}
+                </Button>
+                <span className="self-center text-[11px] text-muted-foreground">
+                  {locale === "bn" ? "স্ক্যান করলেই কোনো পণ্য বিক্রয়ে যোগ হবে না।" : "Scanning alone never adds a product to the sale."}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <p className="sr-only" role="status" aria-live="polite">
           {announce}
