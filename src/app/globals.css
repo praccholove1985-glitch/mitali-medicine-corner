@@ -16,28 +16,28 @@
   color-scheme: light;
 
   /* Calm, paper-white surfaces with clear separation between work areas. */
-  --background: #f5f7fb;
-  --foreground: #182538;
+  --background: #f3faf5;
+  --foreground: #173126;
   --card: #ffffff;
-  --card-foreground: #182538;
-  --muted: #f0f4f9;
-  --muted-foreground: #617188;
-  --border: #e2e8f0;
-  --input: #c5d0de;
+  --card-foreground: #173126;
+  --muted: #edf6f0;
+  --muted-foreground: #61796a;
+  --border: #dce9e0;
+  --input: #c6d9cc;
 
-  --primary: #2859c5;
-  --primary-hover: #204aa8;
+  --primary: #075b31;
+  --primary-hover: #064923;
   --primary-foreground: #ffffff;
-  --primary-soft: #eaf1ff;
-  --primary-text: #244fae;
+  --primary-soft: #e8f6ec;
+  --primary-text: #07552d;
 
-  --accent: #0f8bb8;
-  --accent-foreground: #0f2636;
-  --accent-soft: #e5f6fc;
+  --accent: #c99115;
+  --accent-foreground: #34270d;
+  --accent-soft: #fff6df;
 
-  --success: #16804a;
-  --success-soft: #e8f7ee;
-  --success-text: #146c3f;
+  --success: #0f8a48;
+  --success-soft: #e5f7eb;
+  --success-text: #096b34;
 
   --warning: #a96807;
   --warning-soft: #fff5dc;
@@ -48,21 +48,21 @@
   --danger-soft: #fff0ef;
   --danger-text: #aa2f2f;
 
-  --ring: #4779df;
-  --overlay: rgb(24 37 56 / 0.38);
+  --ring: #2d8750;
+  --overlay: rgb(12 43 27 / 0.38);
 
   /* White navigation rail. Active items are highlighted, never filled black. */
   --sidebar: #ffffff;
-  --sidebar-foreground: #40516a;
-  --sidebar-muted: #7b899d;
-  --sidebar-border: #e7ecf3;
-  --sidebar-hover: #f3f6fb;
-  --sidebar-active: #eaf1ff;
-  --sidebar-active-foreground: #244fae;
+  --sidebar-foreground: #354e3f;
+  --sidebar-muted: #718677;
+  --sidebar-border: #deebe2;
+  --sidebar-hover: #eef7f1;
+  --sidebar-active: #075b31;
+  --sidebar-active-foreground: #ffffff;
 
   --radius: 0.625rem;
-  --elevation-sm: 0 1px 2px 0 rgb(25 39 62 / 0.035), 0 1px 1px 0 rgb(25 39 62 / 0.025);
-  --elevation-md: 0 6px 18px -6px rgb(25 39 62 / 0.10), 0 2px 5px -2px rgb(25 39 62 / 0.05);
+  --elevation-sm: 0 1px 2px 0 rgb(20 74 41 / 0.035), 0 1px 1px 0 rgb(20 74 41 / 0.025);
+  --elevation-md: 0 6px 18px -6px rgb(20 74 41 / 0.10), 0 2px 5px -2px rgb(20 74 41 / 0.05);
 }
 
 @theme inline {
