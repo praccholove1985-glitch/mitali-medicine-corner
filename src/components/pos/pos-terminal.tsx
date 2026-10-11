@@ -11,7 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/common/empty-state";
-import { MobileBarcodeScanner } from "@/components/common/mobile-barcode-scanner";
 import { MobileCameraOCR } from "@/components/common/mobile-camera-ocr";
 import { productSearchTermsFromDetails, suggestProductLabelDetails, type ProductLabelSuggestions } from "@/lib/camera-ocr-parsers";
 import { MoneyText } from "@/components/common/money-text";
@@ -210,30 +209,24 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
     }
   }
 
-  async function handleCameraBarcode(rawValue: string) {
+  async function handleCameraBarcode(rawValue: string): Promise<boolean> {
     const code = normalizeScannerValue(rawValue);
-    if (!code) return;
-    setQuery(code);
-    setScanError(null);
-    setLastAdded(null);
-    setActive(0);
+    if (!code) return false;
     const items = await searchNow(code);
     const match = items.find((item) =>
       item.barcode?.trim().toLowerCase() === code.toLowerCase() ||
       item.sku?.trim().toLowerCase() === code.toLowerCase()
     );
     if (match) {
+      setScanError(null);
+      setLastAdded(null);
+      setActive(0);
       addMedicine(match);
-      return;
+      return true;
     }
-    setQuery(code);
-    setScanError(
-      'No exact match for barcode/SKU "' + code + '". ' +
-      (locale === "bn"
-        ? "কিছু যোগ করা হয়নি। আগে এই বারকোডটি ক্যাটালগের সঠিক পণ্যে সংরক্ষণ করুন।"
-        : "Nothing was added. Save this code to the correct product in the catalogue first.")
-    );
-    setAnnounce(locale === "bn" ? "বারকোডটি কোনো পণ্যের সঙ্গে যুক্ত নয়। কিছু যোগ করা হয়নি।" : "Barcode not linked to a product. No item was added.");
+    // The combined camera workflow falls back to label OCR when a barcode
+    // isn't linked to a catalogue item.
+    return false;
   }
 
   function handleProductLabelText(rawText: string) {
@@ -337,17 +330,12 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
       {/* ---------- Search ---------- */}
       <section aria-label="Find medicines" className="min-w-0">
         <div className="flex min-w-0 items-center gap-1.5 rounded-xl border border-[#c9ddcf] bg-card px-2 shadow-sm transition focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10 sm:gap-2 sm:px-3">
-          <MobileBarcodeScanner
-            locale={locale}
-            onDetected={handleCameraBarcode}
-            size="md"
-            compactOnMobile
-          />
           <MobileCameraOCR
             mode="product"
             locale={locale}
-            label={locale === "bn" ? "নাম/শক্তি স্ক্যান" : "Scan name / strength"}
+            label={locale === "bn" ? "পণ্য স্ক্যান" : "Scan product"}
             onExtracted={handleProductLabelText}
+            onBarcodeDetected={handleCameraBarcode}
             size="md"
             compactOnMobile
           />
