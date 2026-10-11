@@ -10,12 +10,8 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
-  Clock3,
-  FileText,
-  Package,
   PackageSearch,
   Pill,
-  Plus,
   Receipt,
   ShoppingCart,
   Sun,
@@ -24,11 +20,9 @@ import {
   TrendingUp,
   Truck,
   Users,
-  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { MoneyText } from "@/components/common/money-text";
-import { StatusBadge, ExpiryBadge } from "@/components/common/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/common/empty-state";
@@ -70,7 +64,7 @@ function dateLabel(isoDate: string, locale: "en" | "bn", timeZone: string, withY
     day: "2-digit",
     month: "short",
     ...(withYear ? { year: "numeric" as const } : {}),
-    timeZone: "UTC",
+    timeZone,
   }).format(date);
 }
 
@@ -120,7 +114,7 @@ function Sparkline({ values, tone }: { values: Array<string | null>; tone: Tone 
   );
 }
 
-function MetricCard({ metric, locale }: { metric: Metric; locale: "en" | "bn" }) {
+function MetricCard({ metric }: { metric: Metric }) {
   const tones: Record<Tone, string> = {
     green: "bg-emerald-50 text-emerald-800 ring-emerald-100",
     mint: "bg-green-50 text-green-700 ring-green-100",
@@ -472,7 +466,7 @@ export default async function DashboardPage() {
 
       {metrics.length > 0 ? (
         <section aria-label={locale === "bn" ? "আজকের সারসংক্ষেপ" : "Today's summary"} className="mb-4 grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
-          {metrics.slice(0, 4).map((metric) => <MetricCard key={metric.label} metric={metric} locale={locale} />)}
+          {metrics.slice(0, 4).map((metric) => <MetricCard key={metric.label} metric={metric} />)}
         </section>
       ) : null}
 
