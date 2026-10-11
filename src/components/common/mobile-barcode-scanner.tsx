@@ -69,6 +69,7 @@ type Props = {
   locale?: Locale;
   label?: string;
   size?: "sm" | "md";
+  compactOnMobile?: boolean;
 };
 
 export function MobileBarcodeScanner({
@@ -76,6 +77,7 @@ export function MobileBarcodeScanner({
   locale = "en",
   label,
   size = "sm",
+  compactOnMobile = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<"loading" | "scanning" | "error">("loading");
@@ -159,9 +161,19 @@ export function MobileBarcodeScanner({
 
   return (
     <>
-      <Button type="button" variant="outline" size={size} onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant="outline"
+        size={size}
+        onClick={() => setOpen(true)}
+        aria-label={label ?? text("Scan with phone", "মোবাইল ক্যামেরায় স্ক্যান")}
+        title={label ?? text("Scan with phone", "মোবাইল ক্যামেরায় স্ক্যান")}
+        className={compactOnMobile ? "max-sm:size-10 max-sm:px-0" : undefined}
+      >
         <Camera aria-hidden />
-        {label ?? text("Scan with phone", "মোবাইল ক্যামেরায় স্ক্যান")}
+        <span className={compactOnMobile ? "max-sm:sr-only sm:inline" : undefined}>
+          {label ?? text("Scan with phone", "মোবাইল ক্যামেরায় স্ক্যান")}
+        </span>
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
