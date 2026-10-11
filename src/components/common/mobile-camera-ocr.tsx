@@ -54,7 +54,7 @@ async function readBarcodeFromImage(canvas: HTMLCanvasElement): Promise<string |
   try {
     if (!win.ZXingBrowser?.BrowserMultiFormatReader) {
       if (!barcodeLibraryPromise) {
-        barcodeLibraryPromise = new Promise((resolve, reject) => {
+        barcodeLibraryPromise = new Promise<NonNullable<OCRWindow["ZXingBrowser"]>>((resolve, reject) => {
           const existing = document.querySelector<HTMLScriptElement>('script[data-mmc-zxing="true"]');
           const script = existing ?? document.createElement("script");
           const finish = () => {
