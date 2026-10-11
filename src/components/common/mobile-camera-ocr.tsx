@@ -68,6 +68,7 @@ type Props = {
   locale?: Locale;
   label?: string;
   size?: "sm" | "md";
+  compactOnMobile?: boolean;
 };
 
 export function MobileCameraOCR({
@@ -76,6 +77,7 @@ export function MobileCameraOCR({
   locale = "en",
   label,
   size = "sm",
+  compactOnMobile = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [cameraStatus, setCameraStatus] = useState<"starting" | "ready" | "error">("starting");
@@ -222,9 +224,19 @@ export function MobileCameraOCR({
 
   return (
     <>
-      <Button type="button" variant="outline" size={size} onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant="outline"
+        size={size}
+        onClick={() => setOpen(true)}
+        aria-label={label ?? (mode === "invoice" ? text("Scan invoice", "ইনভয়েস স্ক্যান") : text("Scan product text", "পণ্যের লেখা স্ক্যান"))}
+        title={label ?? (mode === "invoice" ? text("Scan invoice", "ইনভয়েস স্ক্যান") : text("Scan product text", "পণ্যের লেখা স্ক্যান"))}
+        className={compactOnMobile ? "max-sm:size-10 max-sm:px-0" : undefined}
+      >
         {mode === "invoice" ? <FileText aria-hidden /> : <Camera aria-hidden />}
-        {label ?? (mode === "invoice" ? text("Scan invoice", "ইনভয়েস স্ক্যান") : text("Scan product text", "পণ্যের লেখা স্ক্যান"))}
+        <span className={compactOnMobile ? "max-sm:sr-only sm:inline" : undefined}>
+          {label ?? (mode === "invoice" ? text("Scan invoice", "ইনভয়েস স্ক্যান") : text("Scan product text", "পণ্যের লেখা স্ক্যান"))}
+        </span>
       </Button>
       <Dialog open={open} onOpenChange={(value) => { if (!processing) setOpen(value); }}>
         <DialogContent className="max-w-xl">
