@@ -12,7 +12,13 @@ const COMPANY_NOISE = /\b(?:pharmaceuticals?|laborator(?:y|ies)|healthcare|healt
 const INSTRUCTION_NOISE = /\b(?:take one|twice daily|once daily|three times|after meals|before meals|keep out of reach|store in a cool|protect from light|do not chew|for external use|prescription only|use as directed|not to exceed|read leaflet)\b/i;
 
 function cleanLines(raw: string): string[] {
-  return raw
+  // Some phone/OCR combinations return label sections as one long line.
+  // Split before recognizable section headings so each field can be extracted.
+  const expanded = raw
+    .replace(/\s+(?=(?:generic(?:\s+name)?|active\s+ingredient|composition|each\s+(?:tablet|capsule|sachet|5\s*ml|ml)[^\n]*?contains)\b)/gi, "\n")
+    .replace(/\s+(?=(?:manufactured\s*(?:&|and)\s*marketed\s*by|manufactured\s*by|marketed\s*by|mfg\.?\s*by|manufacturer)\b)/gi, "\n")
+    .replace(/\s+(?=(?:batch\s*(?:no|number|#)|lot\s*(?:no|number|#)|expiry\s*date|exp\.?\s*date|mfg\.?\s*date|mrp|barcode)\b)/gi, "\n");
+  return expanded
     .split(/\r?\n/)
     .map((line) => line.replace(/[|_]/g, " ").replace(/\s+/g, " ").replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}.)/%+-]+$/gu, "").trim())
     .filter((line) => line.length >= 2);
@@ -56,6 +62,9 @@ function isLikelyProductLine(line: string): boolean {
   if (!/\p{L}{2}/u.test(value)) return false;
   if (PRODUCT_NOISE.test(value) || INSTRUCTION_NOISE.test(value) || COMPANY_NOISE.test(value)) return false;
   if (/^(?:batch|lot|exp|expiry|mfg|mrp|price|barcode|generic|composition|manufacturer|manufactured|marketed|ingredients?|contains|each)\b/i.test(value)) return false;
+  if (/^\d+(?:\.\d+)?\s*(?:mg|mcg|µg|g|gm|kg|ml|iu|%)\s*(?:\/\s*\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml))?$/i.test(value)) return false;
+  if (/^\d+\s*(?:tablets?|capsules?|strips?|bottles?|sachets?|vials?|ampoules?)$/i.test(value)) return false;
+  if (/^(?:take|once|twice|thrice|before|after|use|store|keep|avoid|do not)\b/i.test(value)) return false;
   if (/^\d+[\s./-]*\d*$/.test(value)) return false;
   if (/^(?:tablet|tablets|capsule|capsules|syrup|suspension|drops?|cream|ointment|gel|lotion|injection|solution|powder|sachet|oral solution|oral suspension)$/i.test(value)) return false;
   if (/^(?:bp|usp|ip|mg|mcg|g|ml|iu)\b/i.test(value)) return false;
@@ -76,7 +85,7 @@ export function suggestProductLabelDetails(raw: string): ProductLabelSuggestions
   let genericSource = valueAfterLabel(lines, compositionLabels);
   if (!genericSource) {
     genericSource = firstCapture(full, [
-      /(?:generic\s*name|active\s*ingredient|composition)\s*[:\-]\s*([^\n]+)/i,
+      /(?:generic\s*name|generic|active\s*ingredient|composition)\s*[:\-]\s*([^\n]+)/i,
       /each\s+(?:tablet|capsule|sachet|5\s*ml|ml)[^\n]*?contains\s*[:\-]?\s*([^\n]+)/i,
     ]);
   }
