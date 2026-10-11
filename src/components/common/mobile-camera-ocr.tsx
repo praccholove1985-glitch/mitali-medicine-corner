@@ -62,6 +62,29 @@ function loadTesseract(): Promise<TesseractApi> {
   return tesseractPromise;
 }
 
+function prepareImageForTextRecognition(image: HTMLCanvasElement | HTMLImageElement): HTMLCanvasElement {
+  const sourceWidth = image instanceof HTMLCanvasElement ? image.width : image.naturalWidth;
+  const sourceHeight = image instanceof HTMLCanvasElement ? image.height : image.naturalHeight;
+  const longestSide = Math.max(sourceWidth, sourceHeight, 1);
+  // Upscale small labels, but cap memory use for large phone photos and invoices.
+  const scale = Math.min(2.4, 2800 / longestSide);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+  canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("Could not prepare the photo for text recognition.");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  // Pack text is often coloured, small, or low contrast. Grayscale and contrast
+  // enhancement help OCR without thresholding fine letters away.
+  context.filter = "grayscale(1) contrast(1.4) brightness(1.04)";
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  context.filter = "none";
+  return canvas;
+}
+
 type Props = {
   mode: "product" | "invoice";
   onExtracted: (text: string) => void;
@@ -150,7 +173,8 @@ export function MobileCameraOCR({
     setProgress(0);
     try {
       const api = await loadTesseract();
-      const result = await api.recognize(image as HTMLCanvasElement, "eng", {
+      const preparedImage = prepareImageForTextRecognition(image);
+      const result = await api.recognize(preparedImage, "eng", {
         logger: (message) => {
           if (message.status === "recognizing text" && typeof message.progress === "number") {
             setProgress(Math.round(message.progress * 100));
