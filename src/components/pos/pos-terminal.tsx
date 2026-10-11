@@ -314,17 +314,23 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
       {/* ---------- Search ---------- */}
       <section aria-label="Find medicines" className="min-w-0">
-        <div className="mb-2 flex flex-wrap justify-end gap-2">
-          <MobileBarcodeScanner locale={locale} onDetected={handleCameraBarcode} />
+        <div className="flex min-w-0 items-center gap-1.5 rounded-xl border border-[#c9ddcf] bg-card px-2 shadow-sm transition focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10 sm:gap-2 sm:px-3">
+          <MobileBarcodeScanner
+            locale={locale}
+            onDetected={handleCameraBarcode}
+            size="md"
+            compactOnMobile
+          />
           <MobileCameraOCR
             mode="product"
             locale={locale}
             label={locale === "bn" ? "নাম/শক্তি স্ক্যান" : "Scan name / strength"}
             onExtracted={handleProductLabelText}
+            size="md"
+            compactOnMobile
           />
-        </div>
-        <div className="relative">
-          <ScanBarcode className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <span className="hidden h-7 w-px shrink-0 bg-border sm:block" aria-hidden="true" />
+          <div className="relative min-w-0 flex-1">
           <Input
             ref={searchRef}
             role="combobox"
@@ -375,9 +381,10 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }
             autoFocus
             autoComplete="off"
             spellCheck={false}
-            className="h-14 pr-24 pl-12 text-base"
+            className="h-12 min-w-0 border-0 bg-transparent px-2 pr-9 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:h-14 sm:text-base"
           />
-          <span className="pointer-events-none absolute top-1/2 right-4 hidden -translate-y-1/2 text-xs text-muted-foreground sm:block">F2</span>
+          <span className="pointer-events-none absolute top-1/2 right-2 hidden -translate-y-1/2 text-xs text-muted-foreground sm:block">F2</span>
+          </div>
           {query ? (
             <button
               type="button"
