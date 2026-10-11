@@ -19,7 +19,7 @@ export function BrandMark({ className }: { className?: string }) {
 export function BrandName({ compact = false }: { compact?: boolean }) {
   return (
     <span className={cn("flex min-w-0 flex-col leading-tight", compact && "hidden lg:flex")}>
-      <span className="truncate text-sm font-semibold text-sidebar-active-foreground">
+      <span className="truncate text-sm font-semibold text-foreground">
         Mitali
       </span>
       <span className="truncate text-xs text-sidebar-muted">Medicine Corner</span>
