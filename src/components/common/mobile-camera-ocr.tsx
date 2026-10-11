@@ -14,13 +14,23 @@ import {
 } from "@/components/ui/dialog";
 import type { Locale } from "@/lib/i18n";
 
-type OCRResult = { data: { text: string } };
+type OCRResult = { data: { text: string; confidence?: number } };
+type OCRLoggerMessage = { status?: string; progress?: number };
+type TesseractWorker = {
+  setParameters(parameters: {
+    tessedit_pageseg_mode: string;
+    preserve_interword_spaces: string;
+    user_defined_dpi: string;
+  }): Promise<unknown>;
+  recognize(image: HTMLCanvasElement): Promise<OCRResult>;
+  terminate(): Promise<unknown>;
+};
 type TesseractApi = {
-  recognize(
-    image: HTMLCanvasElement,
+  createWorker(
     languages: string,
-    options?: { logger?: (message: { status?: string; progress?: number }) => void },
-  ): Promise<OCRResult>;
+    engineMode?: number,
+    options?: { logger?: (message: OCRLoggerMessage) => void },
+  ): Promise<TesseractWorker>;
 };
 type OCRWindow = Window & {
   Tesseract?: TesseractApi;
@@ -90,14 +100,14 @@ let tesseractPromise: Promise<TesseractApi> | null = null;
 
 function loadTesseract(): Promise<TesseractApi> {
   const current = (window as OCRWindow).Tesseract;
-  if (current?.recognize) return Promise.resolve(current);
+  if (current?.createWorker) return Promise.resolve(current);
   if (!tesseractPromise) {
     tesseractPromise = new Promise<TesseractApi>((resolve, reject) => {
       const existing = document.querySelector<HTMLScriptElement>('script[data-mmc-tesseract="true"]');
       const script = existing ?? document.createElement("script");
       const finish = () => {
         const api = (window as OCRWindow).Tesseract;
-        if (api?.recognize) resolve(api);
+        if (api?.createWorker) resolve(api);
         else {
           script.remove();
           reject(new Error("The text reader could not load. Check your internet connection and try again."));
@@ -145,6 +155,36 @@ function prepareImageForTextRecognition(image: HTMLCanvasElement | HTMLImageElem
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
   context.filter = "none";
   return canvas;
+}
+
+function mergeRecognizedText(primary: string, supplemental: string): string {
+  const lines: string[] = [];
+  const keys: string[] = [];
+
+  const addLines = (value: string) => {
+    for (const rawLine of value.split(/\r?\n/)) {
+      const line = rawLine.replace(/\s+/g, " ").trim();
+      const key = line.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+      if (key.length < 2) continue;
+
+      // Sparse-text OCR commonly repeats words with slightly different line breaks.
+      // Keep the first version because the regular pass usually preserves better order.
+      const duplicate = keys.some((existing) => {
+        if (existing === key) return true;
+        if (Math.min(existing.length, key.length) < 7) return false;
+        const shorter = existing.length < key.length ? existing : key;
+        const longer = existing.length < key.length ? key : existing;
+        return longer.includes(shorter) && shorter.length / longer.length >= 0.76;
+      });
+      if (duplicate) continue;
+      lines.push(line);
+      keys.push(key);
+    }
+  };
+
+  addLines(primary);
+  addLines(supplemental);
+  return lines.join("\n").trim();
 }
 
 type Props = {
@@ -251,15 +291,55 @@ export function MobileCameraOCR({
 
       const api = await loadTesseract();
       const preparedImage = prepareImageForTextRecognition(image);
-      const result = await api.recognize(preparedImage, "eng", {
+      let pass = 0;
+      let primaryText = "";
+      let supplementalText = "";
+      let passError: unknown = null;
+      const worker = await api.createWorker("eng", 1, {
         logger: (message) => {
           if (message.status === "recognizing text" && typeof message.progress === "number") {
-            setProgress(Math.round(message.progress * 100));
+            const withinPass = Math.round(message.progress * 100);
+            setProgress(pass === 0 ? Math.round(withinPass * 0.45) : 45 + Math.round(withinPass * 0.55));
           }
         },
       });
-      const extracted = result.data.text.trim();
+
+      try {
+        // Medicine packages place text in separate regions. A regular layout pass
+        // followed by sparse-text detection helps recover small composition,
+        // strength and manufacturer lines that a single pass can miss.
+        try {
+          pass = 0;
+          await worker.setParameters({
+            tessedit_pageseg_mode: "3",
+            preserve_interword_spaces: "1",
+            user_defined_dpi: "300",
+          });
+          const result = await worker.recognize(preparedImage);
+          primaryText = result.data.text.trim();
+        } catch (cause) {
+          passError = cause;
+        }
+
+        try {
+          pass = 1;
+          await worker.setParameters({
+            tessedit_pageseg_mode: "11",
+            preserve_interword_spaces: "1",
+            user_defined_dpi: "300",
+          });
+          const result = await worker.recognize(preparedImage);
+          supplementalText = result.data.text.trim();
+        } catch (cause) {
+          passError = passError ?? cause;
+        }
+      } finally {
+        await worker.terminate().catch(() => undefined);
+      }
+
+      const extracted = mergeRecognizedText(primaryText, supplementalText);
       if (!extracted) {
+        if (passError) throw passError;
         setError(text(
           "No readable text was found. Move closer, improve the light, and try again.",
           "পড়ার মতো লেখা পাওয়া যায়নি। ক্যামেরা কাছে ধরুন, আলো বাড়ান, আবার চেষ্টা করুন।",
