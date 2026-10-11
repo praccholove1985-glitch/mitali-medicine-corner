@@ -340,8 +340,11 @@ export function MobileCameraOCR({
         </span>
       </Button>
       <Dialog open={open} onOpenChange={(value) => { if (!processing) setOpen(value); }}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
+        <DialogContent
+          className="top-0 left-0 right-0 bottom-0 h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0 p-0 sm:rounded-none"
+          closeLabel={text("Close scanner", "স্ক্যানার বন্ধ করুন")}
+        >
+          <DialogHeader className="shrink-0 border-b border-border px-4 pt-[calc(env(safe-area-inset-top)+0.8rem)] pb-3 pr-12 sm:px-6 sm:pt-5">
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>
               {mode === "invoice"
@@ -349,28 +352,33 @@ export function MobileCameraOCR({
                 : text("Hold the package so its name, brand, strength and composition are sharp and well lit. The extracted details are suggestions for you to review.", "প্যাকেট এমনভাবে ধরুন যেন নাম, ব্র্যান্ড, শক্তি ও উপাদানের লেখা পরিষ্কার দেখা যায়। পড়া তথ্যগুলো যাচাই করার জন্য প্রস্তাব হিসেবে দেখানো হবে।")}
             </DialogDescription>
           </DialogHeader>
-          <DialogBody className="flex flex-col gap-3">
-            <div className="relative overflow-hidden rounded-xl border bg-black">
-              <video ref={videoRef} autoPlay muted playsInline className="aspect-[4/3] w-full object-contain" aria-label={text("Live camera view", "ক্যামেরার লাইভ দৃশ্য")} />
-              <div className="pointer-events-none absolute inset-3 rounded-md border border-white/70" />
+          <DialogBody className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-5">
+            <div className="relative min-h-[42dvh] flex-1 overflow-hidden rounded-xl border bg-black sm:min-h-0">
+              <video ref={videoRef} autoPlay muted playsInline className="absolute inset-0 h-full w-full object-contain" aria-label={text("Live camera view", "ক্যামেরার লাইভ দৃশ্য")} />
+              <div className="pointer-events-none absolute inset-3 rounded-md border border-white/60" />
+              <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-[11px] font-medium text-white">
+                {mode === "invoice"
+                  ? text("Fit the full page in the frame", "পুরো পৃষ্ঠা ফ্রেমে রাখুন")
+                  : text("Fit the full pack in the frame", "পুরো প্যাকেট ফ্রেমে রাখুন")}
+              </div>
             </div>
             {cameraStatus === "starting" ? <p className="text-sm text-muted-foreground">{text("Starting camera…", "ক্যামেরা চালু হচ্ছে…")}</p> : null}
             {processing ? (
               <p className="flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin" aria-hidden />{text("Reading text", "লেখা পড়া হচ্ছে")}… {progress > 0 ? `${progress}%` : ""}</p>
             ) : null}
             {error ? <Alert tone="warning" title={text("Could not read this image", "ছবি পড়া যায়নি")}>{error}</Alert> : null}
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Button type="button" onClick={capturePhoto} disabled={cameraStatus !== "ready" || processing}>
-                <Camera aria-hidden />{text("Capture and read", "ছবি তুলে লেখা পড়ুন")}
+            <div className="grid shrink-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <Button type="button" size="lg" onClick={capturePhoto} disabled={cameraStatus !== "ready" || processing} className="min-h-12">
+                <Camera aria-hidden />{text("Capture full image · read barcode and text", "পুরো ছবি তুলুন · বারকোড ও লেখা পড়ুন")}
               </Button>
-              <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium hover:bg-muted">
+              <label className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-muted">
                 <FileText className="size-4" aria-hidden />
                 {text("Choose photo", "ছবি বেছে নিন")}
                 <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={processing} onChange={(event) => { void readUploadedPhoto(event.target.files?.[0]); event.currentTarget.value = ""; }} />
               </label>
             </div>
             <p className="text-xs text-muted-foreground">
-              {text("Best results: English print, good light, hold steady and avoid glare. Keep the original invoice or package to verify every field before saving.", "ভালো ফলের জন্য পরিষ্কার ইংরেজি লেখা, পর্যাপ্ত আলো এবং স্থির ক্যামেরা ব্যবহার করুন। সংরক্ষণের আগে মূল ইনভয়েস বা প্যাকেটের সঙ্গে সব তথ্য মিলিয়ে নিন।")}
+              {text("One capture checks the barcode and reads the printed label. Keep the whole package in the frame, use bright light and avoid glare. Results are suggestions to review.", "একবার ছবি তুললেই বারকোড ও প্যাকেটের লেখা পড়ার চেষ্টা করবে। পুরো প্যাকেট ফ্রেমে রাখুন, আলো বাড়ান এবং ঝলক এড়িয়ে চলুন। ফলাফল যাচাই করে নিন।")}
             </p>
             <div className="flex justify-end">
               <Button type="button" variant="outline" disabled={processing} onClick={() => setOpen(false)}>{text("Close", "বন্ধ করুন")}</Button>
