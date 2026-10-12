@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field } from "@/components/ui/field";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { MobileCameraOCR } from "@/components/common/mobile-camera-ocr";
-import { productNameCandidatesFromLabel, suggestProductLabelDetails, type ProductLabelSuggestions } from "@/lib/camera-ocr-parsers";
+import { productBrandNameFromLine, productDisplayNameFromLine, productNameCandidatesFromLabel, suggestProductLabelDetails, type ProductLabelSuggestions } from "@/lib/camera-ocr-parsers";
 import type { Locale } from "@/lib/i18n";
 import { saveMedicineAction, type FormState } from "@/app/(app)/medicines/actions";
 import type { Catalogue, MedicineDetail } from "@/server/db/medicines";
@@ -33,7 +33,7 @@ export function MedicineForm({ medicine, initialBarcode = "", catalogue, canEdit
   const [categoryId, setCategoryId] = useState(state.values?.category_id ?? medicine?.categoryId ?? "");
   const barcodeRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
-  const [labelDraft, setLabelDraft] = useState<{ rawText: string; details: ProductLabelSuggestions; nameCandidates: string[] } | null>(null);
+  const [labelDraft, setLabelDraft] = useState<{ rawText: string; details: ProductLabelSuggestions; nameCandidates: string[]; selectedNameCandidate: string } | null>(null);
   const [labelNotice, setLabelNotice] = useState<string | null>(null);
 
   // What the user typed wins over the saved record after a failed submit.
@@ -72,7 +72,8 @@ export function MedicineForm({ medicine, initialBarcode = "", catalogue, canEdit
           }}
           onExtracted={(rawText) => {
             const details = suggestProductLabelDetails(rawText);
-            setLabelDraft({ rawText, details, nameCandidates: productNameCandidatesFromLabel(rawText) });
+            const nameCandidates = productNameCandidatesFromLabel(rawText);
+            setLabelDraft({ rawText, details, nameCandidates, selectedNameCandidate: nameCandidates[0] ?? "" });
             setLabelNotice(null);
           }}
         />
@@ -96,20 +97,17 @@ export function MedicineForm({ medicine, initialBarcode = "", catalogue, canEdit
               <Field label={locale === "bn" ? "স্ক্যান থেকে শনাক্ত নাম বেছে নিন" : "Choose a product-name candidate from the scan"} htmlFor="ocr-product-name-candidate">
                 <Select
                   id="ocr-product-name-candidate"
-                  value={labelDraft.details.brandName}
+                  value={labelDraft.selectedNameCandidate}
                   onChange={(event) => setLabelDraft((current) => {
                     if (!current) return current;
                     const selected = event.target.value;
-                    const additions = [
-                      current.details.strength && !selected.toLocaleLowerCase().includes(current.details.strength.toLocaleLowerCase()) ? current.details.strength : "",
-                      current.details.dosageForm && !selected.toLocaleLowerCase().includes(current.details.dosageForm.toLocaleLowerCase()) ? current.details.dosageForm : "",
-                    ].filter(Boolean);
                     return {
                       ...current,
+                      selectedNameCandidate: selected,
                       details: {
                         ...current.details,
-                        brandName: selected,
-                        name: selected ? [selected, ...additions].join(" ") : "",
+                        brandName: productBrandNameFromLine(selected, current.details.strength),
+                        name: productDisplayNameFromLine(selected, current.details.strength, current.details.dosageForm),
                       },
                     };
                   })}

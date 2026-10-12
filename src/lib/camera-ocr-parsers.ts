@@ -10,6 +10,21 @@ export type ProductLabelSuggestions = {
 const PRODUCT_NOISE = /^(?:mfg\.?\s*(?:date|dt)|manufacturing date|expiry|exp\.?\s*(?:date|dt)?|batch(?:\s*(?:no|number|#))?|lot(?:\s*(?:no|number|#))?|mrp|price|barcode|bar code|gtin|sku|made in|keep out|store below|prescription only|for external use|schedule|license|licence|composition|each (?:tablet|capsule|5\s*ml).*contains|marketed by|manufactured by|mfg\.?\s*by|manufactured & marketed by|dosage|side effects|indications|directions|warning|caution|storage|keep out of reach|reg\.?\s*no|registration no)\b/i;
 const COMPANY_NOISE = /\b(?:pharmaceuticals?|laborator(?:y|ies)|healthcare|health care|limited|ltd\.?|inc\.?|corporation|corp\.?|industr(?:y|ies)|distributor|manufactured|marketed|manufacturers?)\b/i;
 const INSTRUCTION_NOISE = /\b(?:take one|twice daily|once daily|three times|after meals|before meals|keep out of reach|store in a cool|protect from light|do not chew|for external use|prescription only|use as directed|not to exceed|read leaflet)\b/i;
+const KNOWN_PHARMA_COMPANY = /\b(?:square|incepta|beximco|renata|opsonin|eskayef|aci|acme|aristopharma|drug international|ibn sina|orion|beacon|popular|radiant|navana|ziska|general pharmaceuticals|unimed|jayson|globe|biopharma|delta pharma|pharmasia|chemico|pfizer|gsk|glaxosmithkline|novartis|sanofi|roche|abbott|bayer|eli lilly|johnson\s*&\s*johnson|merck|sun pharma|cipla|dr\.?\s*reddy)\b/i;
+const UNIT_STRENGTH = /\b\d+(?:\.\d+)?\s*(?:mg|mcg|µg|g|gm|kg|ml|iu|%)\b(?:\s*\/\s*\d+(?:\.\d+)?\s*(?:mg|mcg|µg|g|ml|iu))?/i;
+
+function isLikelyCompanyLine(line: string): boolean {
+  return COMPANY_NOISE.test(line) || KNOWN_PHARMA_COMPANY.test(line);
+}
+
+function hasIngredientText(line: string): boolean {
+  const remaining = line
+    .replace(UNIT_STRENGTH, " ")
+    .replace(/\b(?:tablets?|tabs?\.?|capsules?|caps?\.?|dry syrup|syrup|suspension|drops?|eye drops?|ear drops?|oral drops?|cream|ointment|gel|lotion|injection|inhaler|sachet|suppository|solution|powder|spray|mouthwash|lozenge|granules?|bp|usp|ip|each|contains|composition|active ingredient|generic name)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return /\p{L}{3,}/u.test(remaining);
+}
 
 function cleanLines(raw: string): string[] {
   // Some phone/OCR combinations return label sections as one long line.
@@ -60,7 +75,7 @@ function isLikelyProductLine(line: string): boolean {
   const value = line.trim();
   if (value.length < 3 || value.length > 100) return false;
   if (!/\p{L}{2}/u.test(value)) return false;
-  if (PRODUCT_NOISE.test(value) || INSTRUCTION_NOISE.test(value) || COMPANY_NOISE.test(value)) return false;
+  if (PRODUCT_NOISE.test(value) || INSTRUCTION_NOISE.test(value) || isLikelyCompanyLine(value)) return false;
   if (/^(?:batch|lot|exp|expiry|mfg|mrp|price|barcode|generic|composition|manufacturer|manufactured|marketed|ingredients?|contains|each)\b/i.test(value)) return false;
   if (/^\d+(?:\.\d+)?\s*(?:mg|mcg|µg|g|gm|kg|ml|iu|%)\s*(?:\/\s*\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml))?$/i.test(value)) return false;
   if (/^\d+\s*(?:tablets?|capsules?|strips?|bottles?|sachets?|vials?|ampoules?)$/i.test(value)) return false;
@@ -84,6 +99,7 @@ function rankProductNameCandidates(
     .map((line) => {
       const lower = line.toLocaleLowerCase();
       if (company && (lower === company || lower.includes(company))) return { line, score: -100 };
+      if (isLikelyCompanyLine(line)) return { line, score: -100 };
       if (generic && (lower === generic || lower.startsWith(generic + " "))) return { line, score: -100 };
       if (/\b(?:each\s+(?:tablet|capsule)|contains|composition|active ingredient|generic name|manufactured|marketed by)\b/i.test(line)) {
         return { line, score: -100 };
@@ -92,7 +108,7 @@ function rankProductNameCandidates(
       // A line that contains only a strength or dosage form is not a product name.
       const identity = line
         .replace(/\b\d+(?:\.\d+)?\s*(?:mg|mcg|µg|g|gm|kg|ml|iu|%)\b(?:\s*\/\s*\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml))?/gi, " ")
-        .replace(/\b(?:tablets?|tabs?\.?|capsules?|caps?\.?|syrup|suspension|drops?|cream|ointment|gel|lotion|injection|inhaler|sachet|suppository|solution|powder|bp|usp|ip)\b/gi, " ")
+        .replace(/\b(?:tablets?|tabs?\.?|capsules?|caps?\.?|dry syrup|syrup|oral suspension|suspension|eye drops?|ear drops?|oral drops?|drops?|cream|ointment|gel|lotion|injection|inhaler|sachet|suppository|oral solution|solution|powder|nasal spray|spray|mouthwash|lozenge|granules?|bp|usp|ip)\b/gi, " ")
         .replace(/[^\p{L}\s'-]/gu, " ")
         .replace(/\s+/g, " ")
         .trim();
@@ -109,6 +125,7 @@ function rankProductNameCandidates(
       score += wordCount >= 1 && wordCount <= 3 ? 3 : wordCount <= 5 ? 1 : -3;
       if (uppercaseRatio >= 0.65) score += 1;
       if (line.length > 48) score -= 3;
+      if (UNIT_STRENGTH.test(line)) score -= 3;
       if (/\b(?:batch|expiry|expiration|mrp|price|barcode|manufactured|marketed|pharmaceuticals?|laborator(?:y|ies)|limited|ltd\.?)\b/i.test(line)) score -= 5;
       if (strengthKey && lower.replace(/\s+/g, "").includes(strengthKey)) score += 1;
       return { line, score };
@@ -131,6 +148,28 @@ export function productNameCandidatesFromLabel(raw: string): string[] {
   });
 }
 
+/** Strip a strength number from the brand mark when it duplicates the separate strength field. */
+export function productBrandNameFromLine(productLine: string, strength: string): string {
+  let brand = productLine.trim().replace(/[®™©]+$/g, "").trim();
+  const amount = strength.match(/\d+(?:\.\d+)?/)?.[0];
+  if (amount) brand = brand.replace(new RegExp("\\s+" + amount.replace(/[.]/g, "\\.") + "\\s*$", "i"), "").trim();
+  brand = brand.replace(/\s+\d+(?:\.\d+)?\s*(?:mg|mcg|µg|g|gm|kg|ml|iu|%)\s*$/i, "").trim();
+  return brand;
+}
+
+/** Keep the printed product title, avoid duplicating its number, and append form when useful. */
+export function productDisplayNameFromLine(productLine: string, strength: string, dosageForm: string): string {
+  let name = productLine.trim().replace(/[®™©]+$/g, "").trim();
+  const amount = strength.match(/\d+(?:\.\d+)?/)?.[0];
+  const titleHasStrengthNumber = Boolean(amount && new RegExp("(?:^|\\D)" + amount.replace(/[.]/g, "\\.") + "(?:\\D|$)").test(name));
+  const titleHasUnitStrength = Boolean(strength && name.replace(/\s+/g, "").toLocaleLowerCase().includes(strength.replace(/\s+/g, "").toLocaleLowerCase()));
+  if (strength && !titleHasStrengthNumber && !titleHasUnitStrength) name = [name, strength].filter(Boolean).join(" ");
+  if (dosageForm && !name.toLocaleLowerCase().includes(dosageForm.toLocaleLowerCase())) {
+    name = [name, dosageForm].filter(Boolean).join(" ");
+  }
+  return name.replace(/\s+/g, " ").trim().slice(0, 160);
+}
+
 export function suggestProductLabelDetails(raw: string): ProductLabelSuggestions {
   const lines = cleanLines(raw);
   const full = lines.join("\n");
@@ -138,7 +177,7 @@ export function suggestProductLabelDetails(raw: string): ProductLabelSuggestions
   const companyFromLabel = valueAfterLabel(lines, /(?:manufactured\s*(?:&|and)\s*marketed\s*by|manufactured\s*by|marketed\s*by|mfg\.?\s*by|manufacturer)\b\s*:?\s*/i);
   const companyName = companyFromLabel || firstCapture(full, [
     /(?:manufactured\s*(?:&|and)\s*marketed\s*by|manufactured\s*by|marketed\s*by|mfg\.?\s*by|manufacturer\s*:?)\s*([^:\n]+(?:limited|ltd\.?|pharmaceuticals?|laborator(?:y|ies)|healthcare)[^\n]*)/i,
-  ]);
+  ]) || lines.find((line) => isLikelyCompanyLine(line)) || "";
 
   const compositionLabels = /(?:generic\s*name|active\s*ingredient|composition|each\s+(?:tablet|capsule|sachet|5\s*ml|ml)[^\n]*?contains)\b\s*:?\s*/i;
   let genericSource = valueAfterLabel(lines, compositionLabels);
@@ -160,25 +199,40 @@ export function suggestProductLabelDetails(raw: string): ProductLabelSuggestions
   strength = strength.replace(/\s+/g, " ").trim();
 
   const forms: Array<[RegExp, string]> = [
+    [/\bpowder\s+for\s+oral\s+suspension\b/i, "Powder for oral suspension"],
+    [/\bdry\s+syrup\b/i, "Dry syrup"],
+    [/\boral\s+suspension\b/i, "Oral suspension"],
+    [/\beye\s+ointment\b/i, "Eye ointment"],
+    [/\beye\s+drops?\b/i, "Eye drops"],
+    [/\bear\s+drops?\b/i, "Ear drops"],
+    [/\boral\s+drops?\b/i, "Oral drops"],
+    [/\bnasal\s+spray\b/i, "Nasal spray"],
+    [/\beffervescent\s+tablets?\b/i, "Effervescent tablet"],
+    [/\bchewable\s+tablets?\b/i, "Chewable tablet"],
+    [/\bdispersible\s+tablets?\b/i, "Dispersible tablet"],
+    [/\bmodified\s+release\s+tablets?\b/i, "Modified-release tablet"],
     [/\btablet(?:s)?\b|\btab\.?\b/i, "Tablet"],
     [/\bcapsule(?:s)?\b|\bcap\.?\b/i, "Capsule"],
     [/\bsyrup\b/i, "Syrup"],
     [/\bsuspension\b/i, "Suspension"],
-    [/\bdrops?\b/i, "Drops"],
-    [/\binjection\b|\binj\.?\b/i, "Injection"],
+    [/\binjection\b|\binj\.?\b|\bampoule\b|\bvial\b/i, "Injection"],
     [/\bcream\b/i, "Cream"],
     [/\bointment\b|\boint\.?\b/i, "Ointment"],
     [/\binhaler\b/i, "Inhaler"],
     [/\bsachet\b/i, "Sachet"],
     [/\bsuppository\b/i, "Suppository"],
+    [/\boral\s+solution\b/i, "Oral solution"],
     [/\bsolution\b/i, "Solution"],
     [/\bgel\b/i, "Gel"],
     [/\blotion\b/i, "Lotion"],
     [/\bpowder\b/i, "Powder"],
-    [/\beye\s+ointment\b/i, "Eye ointment"],
-    [/\beye\s+drops?\b/i, "Eye drops"],
-    [/\bnasal\s+spray\b/i, "Nasal spray"],
+    [/\bdrops?\b/i, "Drops"],
+    [/\bmouthwash\b/i, "Mouthwash"],
+    [/\blozenge\b/i, "Lozenge"],
+    [/\bgranules?\b/i, "Granules"],
     [/\bspray\b/i, "Spray"],
+    [/\bpatch\b/i, "Patch"],
+    [/\bpessary\b/i, "Pessary"],
   ];
   const dosageForm = forms.find(([pattern]) => pattern.test(full))?.[1] ?? "";
 
@@ -190,30 +244,32 @@ export function suggestProductLabelDetails(raw: string): ProductLabelSuggestions
     strength,
   })[0] ?? "";
 
-  // A lot of medicine labels print the generic on the line immediately following "Composition"
-  // without any explicit "Generic name" heading. Infer it only from a labelled composition
-  // or another non-brand line that contains ingredient-standard suffixes.
+  // Ingredient text is often printed without a "Generic name" heading.
+  // Prefer a line marked with BP/USP/IP, then a non-brand line with concentration
+  // such as "Calcium 500 mg" or "Azithromycin 200 mg/5 ml".
   if (!genericSource) {
-    const genericCandidate = lines.find((line) =>
+    const isGenericCandidate = (line: string) =>
       line !== brandLine &&
       line.length <= 130 &&
-      /\b(?:bp|usp|ip)\b/i.test(line) &&
-      /\p{L}{3,}/u.test(line) &&
-      !COMPANY_NOISE.test(line) &&
-      !INSTRUCTION_NOISE.test(line)
-    );
-    if (genericCandidate) genericSource = genericCandidate;
+      hasIngredientText(line) &&
+      !isLikelyCompanyLine(line) &&
+      !PRODUCT_NOISE.test(line) &&
+      !INSTRUCTION_NOISE.test(line) &&
+      !/\b(?:manufactured|marketed|batch|expiry|mrp|price|barcode)\b/i.test(line);
+    const standardized = lines.find((line) => isGenericCandidate(line) && /\b(?:bp|usp|ip)\b/i.test(line));
+    const withConcentration = lines.find((line) => isGenericCandidate(line) && UNIT_STRENGTH.test(line));
+    genericSource = standardized || withConcentration || "";
   }
   const genericName = normalizeIngredient(genericSource).slice(0, 160);
 
-  let name = brandLine;
-  if (name && strength && !name.toLowerCase().includes(strength.toLowerCase())) name = name + " " + strength;
-  if (name && dosageForm && !name.toLowerCase().includes(dosageForm.toLowerCase())) name = name + " " + dosageForm;
+  const name = brandLine
+    ? productDisplayNameFromLine(brandLine, strength, dosageForm)
+    : "";
 
   return {
     name: name.slice(0, 160),
     genericName,
-    brandName: brandLine.slice(0, 120),
+    brandName: productBrandNameFromLine(brandLine, strength).slice(0, 120),
     strength: strength.slice(0, 80),
     dosageForm,
     companyName: companyName.replace(/\b(?:batch|lot|exp\.?|expiry|mrp|price)\b.*$/i, "").trim().slice(0, 160),
