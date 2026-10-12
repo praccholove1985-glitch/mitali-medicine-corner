@@ -86,9 +86,14 @@ export function useProductSearch(query: string, debounceMs = 150) {
   const trimmed = query.trim();
   const [answer, setAnswer] = useState<SearchAnswer | null>(null);
   const latest = useRef(trimmed);
+  const skipDebouncedQuery = useRef<string | null>(null);
 
   useEffect(() => {
     latest.current = trimmed;
+    if (skipDebouncedQuery.current === trimmed) {
+      skipDebouncedQuery.current = null;
+      return;
+    }
     if (trimmed === "") return;
     const controller = new AbortController();
     const timer = setTimeout(async () => {
@@ -106,8 +111,8 @@ export function useProductSearch(query: string, debounceMs = 150) {
     };
   }, [trimmed, debounceMs]);
 
-  async function searchNow(): Promise<PosMedicine[]> {
-    const q = latest.current;
+  async function searchNow(searchTerm?: string): Promise<PosMedicine[]> {
+    const q = (searchTerm ?? latest.current).trim();
     if (q === "") return [];
     try {
       const items = await fetchSearch(q);
@@ -119,11 +124,46 @@ export function useProductSearch(query: string, debounceMs = 150) {
     }
   }
 
+  /**
+   * Searches several independent clues from a package label. Catalogue fields are
+   * matched independently by the server, so a paragraph joined into one query
+   * would be less useful than name, brand, generic and strength searched separately.
+   */
+  async function searchManyNow(searchTerms: string[], displayQuery?: string): Promise<PosMedicine[]> {
+    const q = (displayQuery ?? latest.current).trim();
+    const terms = Array.from(new Set(searchTerms.map((term) => term.trim()).filter(Boolean))).slice(0, 8);
+    if (!q || terms.length === 0) {
+      setAnswer({ query: q, items: [] });
+      return [];
+    }
+
+    if (q !== latest.current) skipDebouncedQuery.current = q;
+    const results = await Promise.allSettled(terms.map((term) => fetchSearch(term)));
+    const successful = results.filter((result): result is PromiseFulfilledResult<PosMedicine[]> => result.status === "fulfilled");
+    if (successful.length === 0) {
+      const firstFailure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+      setAnswer({ query: q, items: [], error: firstFailure?.reason instanceof Error ? firstFailure.reason.message : "Search failed." });
+      return [];
+    }
+
+    const merged: PosMedicine[] = [];
+    const seen = new Set<string>();
+    for (const result of successful) {
+      for (const item of result.value) {
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        merged.push(item);
+      }
+    }
+    setAnswer({ query: q, items: merged });
+    return merged;
+  }
+
   let state: SearchState;
   if (trimmed === "") state = { status: "idle", items: [] };
   else if (!answer || answer.query !== trimmed) state = { status: "loading", items: answer?.items ?? [] };
   else if (answer.error) state = { status: "error", items: [], message: answer.error };
   else state = { status: "ready", items: answer.items };
 
-  return { state, searchNow };
+  return { state, searchNow, searchManyNow };
 }

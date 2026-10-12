@@ -22,9 +22,11 @@ export type PosMedicine = {
   id: string;
   name: string;
   genericName: string | null;
+  brandName: string | null;
   strength: string | null;
   dosageForm: string | null;
   unit: string;
+  packSize: number;
   companyName: string | null;
   barcode: string | null;
   sku: string | null;
@@ -45,9 +47,11 @@ export async function posSearch(branchId: string, query: string, limit = 20): Pr
     id: String(r.id),
     name: String(r.name),
     genericName: str(r.generic_name),
+    brandName: str(r.brand_name),
     strength: str(r.strength),
     dosageForm: str(r.dosage_form),
     unit: String(r.unit),
+    packSize: Number(r.pack_size ?? 1),
     companyName: str(r.company_name),
     barcode: str(r.barcode),
     sku: str(r.sku),

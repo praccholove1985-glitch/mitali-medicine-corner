@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { Wifi, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { Locale } from "@/lib/i18n";
 
 function subscribe(callback: () => void) {
   window.addEventListener("online", callback);
@@ -18,7 +19,7 @@ function subscribe(callback: () => void) {
  * snapshot is "online" so server and first client render match; it settles to
  * the real value right after hydration.
  */
-export function ConnectionIndicator() {
+export function ConnectionIndicator({ locale = "en" }: { locale?: Locale }) {
   const online = useSyncExternalStore(
     subscribe,
     () => navigator.onLine,
@@ -29,7 +30,7 @@ export function ConnectionIndicator() {
   return (
     <div
       role="status"
-      title="Browser network status"
+      title={locale === "bn" ? "ব্রাউজারের নেটওয়ার্ক অবস্থা" : "Browser network status"}
       className={cn(
         "inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium",
         online
@@ -38,7 +39,7 @@ export function ConnectionIndicator() {
       )}
     >
       <Icon className="size-3.5" aria-hidden />
-      <span className="hidden sm:inline">{online ? "Online" : "Offline"}</span>
+      <span className="hidden sm:inline">{online ? (locale === "bn" ? "অনলাইন" : "Online") : (locale === "bn" ? "অফলাইন" : "Offline")}</span>
       <span className="sr-only sm:hidden">{online ? "Online" : "Offline"}</span>
     </div>
   );

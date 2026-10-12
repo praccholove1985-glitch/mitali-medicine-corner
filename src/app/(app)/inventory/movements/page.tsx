@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLocale } from "@/lib/locale";
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? "";
 
 export default async function MovementsPage({ searchParams }: Props) {
+  const locale = await getLocale();
   const session = await requireSession();
   const params = await searchParams;
 
@@ -120,7 +122,8 @@ export default async function MovementsPage({ searchParams }: Props) {
       </form>
       <div className="border-t">
         <DataTable
-          caption="Stock movements, newest first"
+          locale={locale}
+            caption="Stock movements, newest first"
           columns={columns}
           rows={items}
           getRowId={(m) => String(m.id)}

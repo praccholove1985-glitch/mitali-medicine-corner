@@ -4,11 +4,19 @@ import { PageHeader } from "@/components/common/page-header";
 import { MedicineForm } from "@/components/medicines/medicine-form";
 import { getCatalogue } from "@/server/db/medicines";
 import { requireSession } from "@/server/session";
+import { getLocale } from "@/lib/locale";
 
 export const metadata: Metadata = { title: "Add medicine" };
 
-export default async function NewMedicinePage() {
-  const session = await requireSession();
+type NewMedicinePageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function NewMedicinePage({ searchParams }: NewMedicinePageProps) {
+  const params = await searchParams;
+  const rawBarcode = Array.isArray(params.barcode) ? params.barcode[0] : params.barcode;
+  const initialBarcode = typeof rawBarcode === "string" ? rawBarcode.trim().slice(0, 64) : "";
+  const [session, locale] = await Promise.all([requireSession(), getLocale()]);
   if (!session.permissions.includes("medicine.edit")) return <Forbidden section="adding medicines" />;
 
   const catalogue = await getCatalogue();
@@ -21,9 +29,11 @@ export default async function NewMedicinePage() {
       <div className="max-w-3xl">
         <MedicineForm
           medicine={null}
+          initialBarcode={initialBarcode}
           catalogue={catalogue}
           canEditPrice={canEditPrice}
           purchasePrice={canEditPrice && canSeeCost ? { editable: true, value: null } : null}
+          locale={locale}
         />
       </div>
     </>

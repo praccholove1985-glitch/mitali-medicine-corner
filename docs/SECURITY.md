@@ -190,3 +190,17 @@ drill schedule (Supabase PITR availability depends on plan).
 - Reading customers and statements needs `customer.view`; staff without it get nothing back.
   A customer from another branch reads as not found.
 - Not yet exercised against a live Supabase project.
+
+## 16. As built — Phase 7
+
+- Purchases are made of supplier prices, so reading or entering them needs `purchase.view` and
+  `purchase.view_cost` (and `purchase.create` to enter). The purchases table is readable only under
+  that rule; purchase lines have no table grant at all and are read through `get_purchase`.
+- Suppliers and their ledger are readable with `supplier.view`; money paid out is visible only to
+  those who see suppliers. Cashiers see no purchase or supplier data.
+- `create_purchase` and `pay_supplier` check their permissions in the branch, lock the supplier row
+  (tested with separate connections), and write documents, stock, ledger and audit in one transaction.
+- The browser sends only what was typed; prices are text, totals and costs are computed by the
+  database, and an extra client-sent total is refused.
+- Purchases, lines and supplier ledger entries accept no direct writes and can't be edited or deleted.
+- Not yet exercised against a live Supabase project.

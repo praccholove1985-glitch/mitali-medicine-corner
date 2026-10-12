@@ -29,6 +29,25 @@ refuses to go below zero. Expired stock is listed on the Expiry tab (expired, th
 one step, keeping the batches and their history. Low stock is any medicine with a reorder
 level whose sellable stock (unexpired only) is at or below it.
 
+## 1b-2. Receive stock (as built, Phase 7)
+1. Purchases > New purchase: choose the supplier, enter the supplier's invoice number and date.
+2. Add a line per batch: medicine, batch number, expiry, units bought, free units, price per unit,
+   optional discount (percent or amount) and VAT %. A new batch can carry its own sale price and MRP;
+   otherwise the medicine's defaults are used, and a medicine with no default price needs one.
+3. The totals shown come from the server as you type: gross = units x price, rounded once to 2
+   decimals; discount comes off that; **[RULE]** VAT is added on top (supplier prices are VAT-exclusive).
+4. **Cost per unit** = line total / (bought + free units). Free units lower it.
+5. The same medicine + supplier + batch number + expiry is one batch: the purchase tops it up and the
+   batch cost becomes the average over the units on hand. Prices are never changed by a purchase.
+6. Pay now with any money methods (or nothing); what is not paid stays owed. You can't pay more than
+   the total, and credit is not a payment method here.
+7. Rules: expired or expiring-today stock is refused; the supplier's invoice number can't be entered
+   twice; the invoice date can't be in the future. Everything is recorded together or not at all.
+8. Pay a supplier later from their page; a payment can't exceed what is owed. The supplier page has a
+   statement for any date range.
+Purchases, their lines and the ledger can't be edited; mistakes are corrected by returns (Phase 8) or
+adjustments.
+
 ## 2. Sell (POS / Quick Sale)
 1. Search/scan → add to cart. Default batch = FEFO; show expiry.
 2. Edit qty, discount (limit by role), see totals (preview only).

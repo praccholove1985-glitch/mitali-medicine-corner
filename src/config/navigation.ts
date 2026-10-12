@@ -120,7 +120,8 @@ export const navGroups: NavGroup[] = [
         anyOf: ["purchase.view"],
         label: "Purchases",
         icon: Truck,
-        phase: 7,
+        phase: null,
+        built: true,
         summary: "Receive stock from suppliers and track what is owed.",
         planned: [
           "Supplier invoices with batch, expiry, free quantity and VAT",
@@ -133,8 +134,9 @@ export const navGroups: NavGroup[] = [
         anyOf: ["supplier.view"],
         label: "Suppliers",
         icon: Building2,
-        phase: 7,
-        summary: "Supplier records and balances.",
+        phase: null,
+        built: true,
+        summary: "Supplier records, balances, payments and statements.",
         planned: ["Supplier directory", "Supplier ledger and statements"],
       },
       {

@@ -83,6 +83,13 @@ describe("mapError", () => {
   it("explains stock rules in plain words", () => {
     expect(mapError({ code: "PH041", message: "cannot remove 5 from a batch holding 2" }, "t").message).not.toMatch(/\b5\b|\b2\b/);
     expect(mapError({ code: "PH041" }, "t").code).toBe("CONFLICT");
+    expect(mapError({ code: "PH059", message: "dup", hint: '{"purchase_no":"PUR-000009"}' }, "t")).toMatchObject({
+      code: "CONFLICT",
+      message: expect.not.stringContaining("PUR-000009"),
+    });
+    for (const code of ["PH060", "PH061", "PH062", "PH063"]) {
+      expect(mapError({ code, message: "raw 123.45 detail" }, "t").message, code).not.toContain("123.45");
+    }
     expect(mapError({ code: "PH058", message: "payment exceeds what is due", hint: '{"due":"12.00"}' }, "t")).toMatchObject({
       code: "INVALID",
       message: expect.not.stringContaining("12.00"),

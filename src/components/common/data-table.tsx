@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
 import { TableSkeleton } from "@/components/common/loading-state";
 import { cn } from "@/lib/utils";
+import { localizeText, type Locale } from "@/lib/i18n";
 
 export type DataTableColumn<T> = {
   key: string;
@@ -46,6 +47,7 @@ type DataTableProps<T> = {
   empty?: { icon?: LucideIcon; title: string; description?: React.ReactNode; action?: React.ReactNode };
   pagination?: DataTablePagination;
   className?: string;
+  locale?: Locale;
 };
 
 /**
@@ -64,21 +66,28 @@ function DataTable<T>({
   empty = { title: "Nothing here yet" },
   pagination,
   className,
+  locale = "en",
 }: DataTableProps<T>) {
+  const localizedCaption = localizeText(locale, caption);
+  const localizedEmpty = {
+    ...empty,
+    title: localizeText(locale, empty.title),
+    description: typeof empty.description === "string" ? localizeText(locale, empty.description) : empty.description,
+  };
   if (loading) {
-    return <TableSkeleton columns={Math.min(columns.length, 5)} label={`Loading ${caption}`} />;
+    return <TableSkeleton columns={Math.min(columns.length, 5)} label={`${locale === "bn" ? "লোড হচ্ছে" : "Loading"} ${localizedCaption}`} />;
   }
   if (error) {
-    return <ErrorState message={error} onRetry={onRetry} />;
+    return <ErrorState message={localizeText(locale, error)} onRetry={onRetry} />;
   }
   if (rows.length === 0) {
-    return <EmptyState {...empty} />;
+    return <EmptyState {...localizedEmpty} />;
   }
 
   return (
     <div className={className}>
       <Table>
-        <TableCaption className="sr-only">{caption}</TableCaption>
+        <TableCaption className="sr-only">{localizedCaption}</TableCaption>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             {columns.map((column) => (
@@ -87,7 +96,7 @@ function DataTable<T>({
                 align={column.align}
                 className={cn(column.hideOnMobile && "hidden md:table-cell")}
               >
-                {column.header}
+                {localizeText(locale, column.header)}
               </TableHead>
             ))}
           </TableRow>
@@ -111,19 +120,19 @@ function DataTable<T>({
           ))}
         </TableBody>
       </Table>
-      {pagination ? <Pagination {...pagination} /> : null}
+      {pagination ? <Pagination {...pagination} locale={locale} /> : null}
     </div>
   );
 }
 
-function Pagination({ page, pageCount, total, onPageChange }: DataTablePagination) {
+function Pagination({ page, pageCount, total, onPageChange, locale }: DataTablePagination & { locale: Locale }) {
   return (
     <nav
-      aria-label="Pagination"
+      aria-label={locale === "bn" ? "পৃষ্ঠা চলাচল" : "Pagination"}
       className="flex items-center justify-between gap-3 border-t px-4 py-3"
     >
       <p className="text-xs text-muted-foreground" aria-live="polite">
-        Page {page} of {Math.max(pageCount, 1)} · {total} total
+        {locale === "bn" ? `পৃষ্ঠা ${page.toLocaleString("bn-BD")} / ${Math.max(pageCount, 1).toLocaleString("bn-BD")} · মোট ${total.toLocaleString("bn-BD")}` : `Page ${page} of ${Math.max(pageCount, 1)} · ${total} total`}
       </p>
       <div className="flex gap-2">
         <Button
@@ -133,7 +142,7 @@ function Pagination({ page, pageCount, total, onPageChange }: DataTablePaginatio
           onClick={() => onPageChange(page - 1)}
         >
           <ChevronLeft aria-hidden />
-          Previous
+          {localizeText(locale, "Previous")}
         </Button>
         <Button
           variant="outline"
@@ -141,7 +150,7 @@ function Pagination({ page, pageCount, total, onPageChange }: DataTablePaginatio
           disabled={page >= pageCount}
           onClick={() => onPageChange(page + 1)}
         >
-          Next
+          {localizeText(locale, "Next")}
           <ChevronRight aria-hidden />
         </Button>
       </div>

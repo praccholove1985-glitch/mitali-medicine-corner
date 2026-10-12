@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLocale } from "@/lib/locale";
 import Link from "next/link";
 import { AlertTriangle, HandCoins, UserRound, Users, Wallet } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -31,6 +32,7 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? "";
 
 export default async function CustomersPage({ searchParams }: Props) {
+  const locale = await getLocale();
   const session = await requireSession();
   const params = await searchParams;
 
@@ -156,6 +158,7 @@ export default async function CustomersPage({ searchParams }: Props) {
         </div>
         <div className="border-t">
           <DataTable
+            locale={locale}
             caption="Customers and what they owe"
             columns={columns}
             rows={items}

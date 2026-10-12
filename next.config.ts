@@ -11,6 +11,22 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // OpenCV's Node branch conditionally references "fs". In browsers, the
+  // Paddle-based OCR path never uses it; this empty shim keeps Turbopack's
+  // Client Component and SSR bundles from trying to polyfill Node filesystem APIs.
+  turbopack: {
+    resolveAlias: {
+      fs: "./src/lib/browser-noop-module.ts",
+    },
+  },
+  webpack(config) {
+    config.resolve = config.resolve ?? {};
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+    };
+    return config;
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

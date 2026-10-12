@@ -107,8 +107,21 @@ clean; affected UI inspected; docs updated.
 - [ ] Collections by payment method per day — Phase 9
 
 ## Phase 7 — Purchases and suppliers
-- [ ] Suppliers, `create_purchase`, batch top-up, free qty cost
-- [ ] Supplier ledger, supplier payments; duplicate invoice guard
+- [x] Suppliers: list with balance, search, filters (you owe, inactive), add, edit, deactivate
+- [x] Supplier page: balance, lifetime purchases, last payment, statement for any date range, print
+- [x] `create_purchase`: atomic and idempotent; new batch or top-up of the same medicine + supplier + batch + expiry; PURCHASE movements; ledger and audit in one transaction
+- [x] Free units lower the cost per unit (line total over paid + free units); a top-up re-averages the batch cost over units on hand
+- [x] Discount (none / amount / percent) and VAT per line; every figure computed by the database; the form shows a server quote
+- [x] Duplicate supplier invoice blocked (per supplier, any case); expired stock and future invoice dates refused
+- [x] Pay part, all or none now; the rest stays owed; supplier payments later, never above what is owed
+- [x] Purchases list, purchase page, print; supplier balance on the dashboard
+- [x] Tests: 013_purchases.sql (permissions, pricing and rounding vectors, batches, free units, duplicates, payments, atomicity, idempotency, statements, immutability, audit), mutation-checked; concurrency tests (same invoice, top-ups, supplier payments); zod tests
+- [ ] Verify the pages against a live Supabase project
+- [ ] OCR import of invoice photos — Phase 11
+- [ ] Purchase returns and supplier credit notes — Phase 8
+- [ ] Reorder suggestions per supplier (low stock grouped by last supplier)
+- [ ] Owner decision: supplier prices VAT-exclusive (added on top) as built, or VAT-inclusive
+- [ ] Batch edits and supplier on opening-stock batches (those have no supplier and stay separate batches)
 
 ## Phase 8 — Returns
 - [ ] Sale return (original batch, revenue/COGS/profit reversal, ledger)

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLocale } from "@/lib/locale";
 import Link from "next/link";
 import { AlertTriangle, Boxes, CalendarClock, PackageSearch, Pill, Wallet } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -37,6 +38,7 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? "";
 
 export default async function StockPage({ searchParams }: Props) {
+  const locale = await getLocale();
   const session = await requireSession();
   const params = await searchParams;
 
@@ -206,6 +208,7 @@ export default async function StockPage({ searchParams }: Props) {
         </div>
         <div className="border-t">
           <DataTable
+            locale={locale}
             caption="Stock by medicine"
             columns={columns}
             rows={items}

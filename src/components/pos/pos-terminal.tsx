@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useId, useReducer, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Minus, PackageX, Plus, ScanBarcode, Search, ShoppingCart, Trash2, X } from "lucide-react";
+import { Minus, PackageX, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/common/empty-state";
+import { MobileCameraOCR } from "@/components/common/mobile-camera-ocr";
+import { productSearchTermsFromDetails, suggestProductLabelDetails, type ProductLabelSuggestions } from "@/lib/camera-ocr-parsers";
 import { MoneyText } from "@/components/common/money-text";
 import { BatchPickerDialog } from "@/components/pos/batch-picker-dialog";
 import { CustomerDialog } from "@/components/pos/customer-dialog";
@@ -21,6 +24,7 @@ import { formatDate } from "@/lib/dates";
 import { cartReducer, linesFromDraft, toApiItems, totalUnits, type CartLine } from "@/lib/pos/cart";
 import { cn } from "@/lib/utils";
 import type { PosCustomer, PosMedicine } from "@/server/db/pos";
+import type { Locale } from "@/lib/i18n";
 import type { ActionFailure, CompleteSaleResult, CustomerResult, DraftResult } from "@/app/(app)/pos/actions";
 
 export type PosActions = {
@@ -32,13 +36,14 @@ export type PosActions = {
 
 type Props = {
   actions: PosActions;
+  locale: Locale;
   /** Customer search needs customer.view; without it the till sells to walk-ins only. */
   canPickCustomer: boolean;
   /** Where to go after a sale. Defaults to the invoice page. */
   onSaleComplete?: (sale: { saleId: string; invoiceNo: string }) => void;
 };
 
-export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props) {
+export function PosTerminal({ actions, canPickCustomer, onSaleComplete, locale }: Props) {
   const router = useRouter();
   const searchId = useId();
   const listId = `${searchId}-results`;
@@ -51,6 +56,10 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [announce, setAnnounce] = useState("");
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [lastAdded, setLastAdded] = useState<PosMedicine | null>(null);
+  const [labelScanDraft, setLabelScanDraft] = useState<{ rawText: string; details: ProductLabelSuggestions } | null>(null);
+  const scanBurst = useRef<{ lastAt: number; characters: number; timer: ReturnType<typeof setTimeout> | null }>({ lastAt: 0, characters: 0, timer: null });
   const [payOpen, setPayOpen] = useState(false);
   const [payKey, setPayKey] = useState(0);
   const [saleError, setSaleError] = useState<ActionFailure | null>(null);
@@ -60,13 +69,19 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
   const requestId = useRef<string | null>(null);
 
   const quote = useQuote(lines);
-  const { state: search, searchNow } = useProductSearch(query);
+  const { state: search, searchNow, searchManyNow } = useProductSearch(query);
 
   const ready = quote.status === "ready";
   const grandTotal = ready ? quote.quote.totals.grandTotal : null;
   const canPay = ready && lines.length > 0;
 
   // F2 jumps to search; F4 takes payment.
+  useEffect(() => {
+    return () => {
+      if (scanBurst.current.timer) clearTimeout(scanBurst.current.timer);
+    };
+  }, []);
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === "F2") {
@@ -82,17 +97,50 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
     return () => window.removeEventListener("keydown", onKey);
   }, [canPay]);
 
+  function normalizeScannerValue(value: string): string {
+    return value
+      .trim()
+      .replace(/[\u0000-\u001f]+/g, "")
+      .replace(/^\](?:C1|d2|Q3)/i, "");
+  }
+
+  function looksLikeScannedCode(value: string): boolean {
+    return value.length >= 6 && value.length <= 64 && !/\s/.test(value) &&
+      /^[a-z0-9._/-]+$/i.test(value) && /\d/.test(value);
+  }
+
   function addMedicine(m: PosMedicine) {
     if (m.sellableQty <= 0) {
-      setAnnounce(`${m.name} is out of stock.`);
+      setScanError(null);
+      setAnnounce(locale === "bn" ? m.name + " এর স্টক নেই।" : m.name + " is out of stock.");
       return;
     }
     dispatch({
       type: "add",
       key: crypto.randomUUID(),
-      medicine: { id: m.id, name: m.name, strength: m.strength, unit: m.unit, prescriptionRequired: m.prescriptionRequired },
+      medicine: {
+        id: m.id,
+        name: m.name,
+        strength: m.strength,
+        unit: m.unit,
+        packSize: m.packSize,
+        prescriptionRequired: m.prescriptionRequired,
+        genericName: m.genericName,
+        brandName: m.brandName,
+        dosageForm: m.dosageForm,
+        companyName: m.companyName,
+        barcode: m.barcode,
+        sku: m.sku,
+        mrp: m.mrp,
+        salePrice: m.salePrice,
+        batchCount: m.batchCount,
+        sellableQty: m.sellableQty,
+        nearestExpiry: m.nearestExpiry,
+      },
     });
-    setAnnounce(`Added ${m.name}.`);
+    setAnnounce(locale === "bn" ? m.name + " বিক্রয় তালিকায় যোগ হয়েছে।" : "Added " + m.name + " to the sale list.");
+    setLastAdded(m);
+    setScanError(null);
     setSaleError(null);
     setQuery("");
     setActive(0);
@@ -100,6 +148,17 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
   }
 
   async function onSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      const now = performance.now();
+      scanBurst.current.characters = now - scanBurst.current.lastAt <= 45 ? scanBurst.current.characters + 1 : 1;
+      scanBurst.current.lastAt = now;
+    }
+    if (event.key === "Enter") {
+      if (scanBurst.current.timer) clearTimeout(scanBurst.current.timer);
+      scanBurst.current.timer = null;
+      scanBurst.current.characters = 0;
+      scanBurst.current.lastAt = 0;
+    }
     if (event.key === "ArrowDown") {
       event.preventDefault();
       setActive((i) => Math.min(i + 1, Math.max(search.items.length - 1, 0)));
@@ -108,15 +167,104 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
       setActive((i) => Math.max(i - 1, 0));
     } else if (event.key === "Escape") {
       setQuery("");
+      setScanError(null);
     } else if (event.key === "Enter") {
       event.preventDefault();
-      if (query.trim() === "") return;
-      // A scanner types the code and presses Enter before the debounce fires: ask now.
-      const items = search.status === "ready" ? search.items : await searchNow();
-      const exact = items.find((i) => i.exactMatch);
+      const rawQuery = query.trim();
+      if (rawQuery === "") return;
+
+      const scannedCode = normalizeScannerValue(rawQuery);
+      const isScannedCode = looksLikeScannedCode(scannedCode);
+      const items = isScannedCode
+        ? await searchNow(scannedCode)
+        : search.status === "ready"
+          ? search.items
+          : await searchNow();
+
+      const exact = items.find((item) =>
+        item.exactMatch ||
+        (isScannedCode && (
+          item.barcode?.trim().toLowerCase() === scannedCode.toLowerCase() ||
+          item.sku?.trim().toLowerCase() === scannedCode.toLowerCase()
+        ))
+      );
+
+      if (isScannedCode) {
+        setQuery(scannedCode);
+        if (exact) {
+          addMedicine(exact);
+          return;
+        }
+        setScanError(
+          'No exact match for barcode/SKU "' + scannedCode +
+          '". Nothing was added. Save this barcode in the correct medicine catalogue record first.'
+        );
+        setAnnounce(locale === "bn" ? "বারকোডটি কোনো ওষুধের সঙ্গে যুক্ত নয়। কিছু যোগ করা হয়নি।" : "Barcode not linked to a medicine. No item was added.");
+        return;
+      }
+
       const chosen = exact ?? items[Math.min(active, items.length - 1)];
       if (chosen) addMedicine(chosen);
       else setAnnounce("No medicine found.");
+    }
+  }
+
+  async function handleCameraBarcode(rawValue: string): Promise<boolean> {
+    const code = normalizeScannerValue(rawValue);
+    if (!code) return false;
+    const items = await searchNow(code);
+    const match = items.find((item) =>
+      item.barcode?.trim().toLowerCase() === code.toLowerCase() ||
+      item.sku?.trim().toLowerCase() === code.toLowerCase()
+    );
+    if (match) {
+      setScanError(null);
+      setLastAdded(null);
+      setActive(0);
+      addMedicine(match);
+      return true;
+    }
+    // The combined camera workflow falls back to label OCR when a barcode
+    // isn't linked to a catalogue item.
+    return false;
+  }
+
+  function handleProductLabelText(rawText: string) {
+    const details = suggestProductLabelDetails(rawText);
+    setScanError(null);
+    setLastAdded(null);
+    setActive(0);
+    setLabelScanDraft({ rawText, details });
+    setAnnounce(locale === "bn"
+      ? "পণ্যের লেখা পড়া হয়েছে। নাম, জেনেরিক, ব্র্যান্ড ও শক্তি যাচাই করুন।"
+      : "Product label text captured. Review the name, generic, brand and strength before searching.");
+  }
+
+  async function searchFromLabelDraft() {
+    if (!labelScanDraft) return;
+    const details = labelScanDraft.details;
+    const terms = productSearchTermsFromDetails(details, labelScanDraft.rawText);
+    const displayQuery = (details.name || details.brandName || details.genericName || terms[0] || "").trim();
+    if (!displayQuery || terms.length === 0) {
+      setScanError(locale === "bn"
+        ? "স্ক্যান করা লেখা থেকে খোঁজার মতো পণ্যের নাম পাওয়া যায়নি। নিচের ঘরে নাম লিখুন।"
+        : "No usable product name was found in the scan. Type a medicine name in the search box.");
+      return;
+    }
+
+    setScanError(null);
+    setActive(0);
+    setQuery(displayQuery);
+    setLabelScanDraft(null);
+    const matches = await searchManyNow(terms, displayQuery);
+    if (matches.length === 0) {
+      setAnnounce(locale === "bn"
+        ? "স্ক্যান করা নাম, জেনেরিক, ব্র্যান্ড ও শক্তি দিয়ে কোনো মিল পাওয়া যায়নি। নামের বানান ঠিক করে আবার চেষ্টা করুন।"
+        : "No catalogue match found from the scanned name, generic, brand or strength. Edit the terms and try again.");
+    } else {
+      setAnnounce(locale === "bn"
+        ? "স্ক্যান করা একাধিক তথ্য দিয়ে " + matches.length + "টি সম্ভাব্য মিল পাওয়া গেছে। সঠিক পণ্যটি বেছে নিন।"
+        : matches.length + " possible catalogue matches found from multiple label details. Select the correct product.");
     }
   }
 
@@ -181,33 +329,77 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
       {/* ---------- Search ---------- */}
       <section aria-label="Find medicines" className="min-w-0">
-        <div className="relative">
-          <ScanBarcode className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <div className="flex min-w-0 items-center gap-1.5 rounded-xl border border-[#c9ddcf] bg-card px-2 shadow-sm transition focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10 sm:gap-2 sm:px-3">
+          <MobileCameraOCR
+            mode="product"
+            locale={locale}
+            label={locale === "bn" ? "পণ্য স্ক্যান" : "Scan product"}
+            onExtracted={handleProductLabelText}
+            onBarcodeDetected={handleCameraBarcode}
+            size="md"
+            compactOnMobile
+          />
+          <span className="hidden h-7 w-px shrink-0 bg-border sm:block" aria-hidden="true" />
+          <div className="relative min-w-0 flex-1">
           <Input
             ref={searchRef}
             role="combobox"
             aria-expanded={query.trim() !== ""}
             aria-controls={listId}
             aria-activedescendant={search.items[active] ? `${searchId}-opt-${active}` : undefined}
-            aria-label="Search by name, generic, brand, company, barcode or SKU. Scan a barcode and press Enter to add."
-            placeholder="Scan a barcode or type a medicine name"
+            aria-label={locale === "bn" ? "নাম, জেনেরিক, ব্র্যান্ড, কোম্পানি, বারকোড বা SKU দিয়ে খুঁজুন। স্ক্যান করে এন্টার চাপলে যোগ হবে।" : "Search by name, generic, brand, company, barcode or SKU. Scan a barcode and press Enter to add."}
+            placeholder={locale === "bn" ? "বারকোড স্ক্যান করুন বা ওষুধের নাম লিখুন" : "Scan a barcode or type a medicine name"}
             value={query}
             onChange={(e) => {
-              setQuery(e.target.value);
+              const value = e.target.value;
+              setQuery(value);
+              setScanError(null);
+              setLastAdded(null);
               setActive(0);
+
+              // Many USB/Bluetooth barcode scanners type faster than a person and
+              // may not be configured to send Enter. Add only after an exact
+              // catalogue barcode/SKU match; ordinary typing never guesses a product.
+              const code = normalizeScannerValue(value);
+              if (scanBurst.current.characters >= 6 && looksLikeScannedCode(code)) {
+                if (scanBurst.current.timer) clearTimeout(scanBurst.current.timer);
+                scanBurst.current.timer = setTimeout(async () => {
+                  scanBurst.current.timer = null;
+                  if (searchRef.current?.value !== value) return;
+                  const items = await searchNow(code);
+                  if (searchRef.current?.value !== value) return;
+                  const match = items.find((item) =>
+                    item.barcode?.trim().toLowerCase() === code.toLowerCase() ||
+                    item.sku?.trim().toLowerCase() === code.toLowerCase()
+                  );
+                  if (match) {
+                    addMedicine(match);
+                    return;
+                  }
+                  setQuery(code);
+                  setScanError(
+                    'No exact match for barcode/SKU "' + code + '". ' +
+                    (locale === "bn"
+                      ? "কিছু যোগ করা হয়নি। আগে এই বারকোডটি ক্যাটালগের সঠিক পণ্যে সংরক্ষণ করুন।"
+                      : "Nothing was added. Save this code to the correct product in the catalogue first.")
+                  );
+                  setAnnounce(locale === "bn" ? "বারকোডটি কোনো পণ্যের সঙ্গে যুক্ত নয়। কিছু যোগ করা হয়নি।" : "Barcode not linked to a product. No item was added.");
+                }, 140);
+              }
             }}
             onKeyDown={onSearchKeyDown}
             autoFocus
             autoComplete="off"
             spellCheck={false}
-            className="h-14 pr-24 pl-12 text-base"
+            className="h-12 min-w-0 border-0 bg-transparent px-2 pr-9 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:h-14 sm:text-base"
           />
-          <span className="pointer-events-none absolute top-1/2 right-4 hidden -translate-y-1/2 text-xs text-muted-foreground sm:block">F2</span>
+          <span className="pointer-events-none absolute top-1/2 right-2 hidden -translate-y-1/2 text-xs text-muted-foreground sm:block">F2</span>
           {query ? (
             <button
               type="button"
               onClick={() => {
                 setQuery("");
+                setScanError(null);
                 searchRef.current?.focus();
               }}
               className="absolute top-1/2 right-4 flex size-8 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-muted sm:right-10"
@@ -216,27 +408,130 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
               <span className="sr-only">Clear search</span>
             </button>
           ) : null}
+          </div>
         </div>
+
+        {labelScanDraft ? (
+          <Card className="my-3 border-primary/25 bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">
+                {locale === "bn" ? "স্ক্যান করা ওষুধের তথ্য যাচাই করুন" : "Review scanned medicine details"}
+              </CardTitle>
+              <p className="text-xs leading-5 text-muted-foreground">
+                {locale === "bn"
+                  ? "OCR ভুল পড়তে পারে। নিচের তথ্যগুলো ঠিক করুন। নাম, ব্র্যান্ড, জেনেরিক, শক্তি ও কোম্পানি আলাদাভাবে খোঁজা হবে—পুরো অনুচ্ছেদ একসঙ্গে নয়।"
+                  : "OCR can misread packaging. Correct these fields if needed. Name, brand, generic, strength and company will be searched separately—not as one long phrase."}
+              </p>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <details className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+                <summary className="cursor-pointer text-xs font-semibold">
+                  {locale === "bn" ? "ক্যামেরায় পড়া সম্পূর্ণ লেখা দেখুন" : "Show all text recognized by the camera"}
+                </summary>
+                <pre className="mt-2 max-h-44 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground">{labelScanDraft.rawText}</pre>
+              </details>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {([
+                  ["name", locale === "bn" ? "ওষুধের নাম" : "Product name"],
+                  ["brandName", locale === "bn" ? "ব্র্যান্ডের নাম" : "Brand name"],
+                  ["genericName", locale === "bn" ? "জেনেরিক / উপাদান" : "Generic / active ingredient"],
+                  ["strength", locale === "bn" ? "শক্তি (যেমন 500 mg, 5 mg/5 ml)" : "Strength (e.g. 500 mg, 5 mg/5 ml)"],
+                  ["dosageForm", locale === "bn" ? "ধরন (ট্যাবলেট/সিরাপ)" : "Dosage form"],
+                  ["companyName", locale === "bn" ? "প্রস্তুতকারক / কোম্পানি" : "Manufacturer / company"],
+                ] as Array<[keyof ProductLabelSuggestions, string]>).map(([key, label]) => (
+                  <label key={key} htmlFor={"pos-ocr-" + key} className="flex min-w-0 flex-col gap-1.5 text-xs font-semibold text-foreground">
+                    {label}
+                    <Input
+                      id={"pos-ocr-" + key}
+                      value={labelScanDraft.details[key]}
+                      onChange={(event) => setLabelScanDraft((current) => current ? ({
+                        ...current,
+                        details: { ...current.details, [key]: event.target.value },
+                      }) : current)}
+                      className="h-10 min-w-0 font-normal"
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" onClick={() => { void searchFromLabelDraft(); }}>
+                  {locale === "bn" ? "এই তথ্য দিয়ে পণ্য খুঁজুন" : "Search catalogue with these details"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setLabelScanDraft(null)}>
+                  {locale === "bn" ? "বাতিল" : "Cancel"}
+                </Button>
+                <span className="self-center text-[11px] text-muted-foreground">
+                  {locale === "bn" ? "স্ক্যান করলেই কোনো পণ্য বিক্রয়ে যোগ হবে না।" : "Scanning alone never adds a product to the sale."}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <p className="sr-only" role="status" aria-live="polite">
           {announce}
         </p>
 
+        {lastAdded ? (
+          <Card className="mb-3 border-success/30 bg-success-soft/35">
+            <CardContent className="flex flex-col gap-2 p-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-success-text">{locale === "bn" ? "বিক্রয় তালিকায় যোগ হয়েছে" : "Added to sale"}</p>
+                <Badge tone="success">{locale === "bn" ? "প্রস্তুত" : "Ready"}</Badge>
+              </div>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-base font-semibold">{lastAdded.name}{lastAdded.strength ? ` · ${lastAdded.strength}` : ""}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {[lastAdded.genericName, lastAdded.brandName, lastAdded.dosageForm, lastAdded.companyName].filter(Boolean).join(" · ") || "Product details"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {locale === "bn" ? "বিক্রয় একক" : "Sell unit"}: {lastAdded.unit}{lastAdded.packSize > 1 ? ` · ${locale === "bn" ? "প্যাকের পরিমাণ" : "pack size"}: ${lastAdded.packSize}` : ""}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  {lastAdded.salePrice !== null ? <MoneyText amount={lastAdded.salePrice} fractionDigits={2} className="text-lg font-semibold" /> : <span className="text-xs text-danger-text">Price not set</span>}
+                  {lastAdded.mrp !== null ? <p className="text-xs text-muted-foreground">{locale === "bn" ? "এমআরপি" : "MRP"} <MoneyText amount={lastAdded.mrp} fractionDigits={2} className="inline" /></p> : null}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-success/15 pt-2 text-xs text-muted-foreground">
+                {lastAdded.barcode ? <span>{locale === "bn" ? "বারকোড" : "Barcode"}: {lastAdded.barcode}</span> : null}
+                {lastAdded.sku ? <span>SKU: {lastAdded.sku}</span> : null}
+                <span>{locale === "bn" ? "মজুত" : "Available"}: {lastAdded.sellableQty.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD")} {lastAdded.unit}</span>
+                <span>{lastAdded.batchCount.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD")} {locale === "bn" ? "টি বিক্রয়যোগ্য ব্যাচ" : `sellable batch${lastAdded.batchCount === 1 ? "" : "es"}`}</span>
+                {lastAdded.nearestExpiry ? <span>{locale === "bn" ? "পরবর্তী মেয়াদ" : "Next expiry"}: {formatDate(lastAdded.nearestExpiry)}</span> : null}
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {scanError ? (
+          <Alert tone="warning" title={locale === "bn" ? "বারকোড যুক্ত করা নেই" : "Barcode not linked"}>
+            <p>{scanError}</p>
+            <Link
+              href={`/medicines/new?barcode=${encodeURIComponent(query)}`}
+              className="mt-2 inline-flex text-sm font-semibold text-primary-text underline underline-offset-2"
+            >
+              {locale === "bn" ? "এই বারকোডটি ক্যাটালগে যোগ করুন" : "Add this barcode to the catalogue"}
+            </Link>
+          </Alert>
+        ) : null}
+
         <div className="mt-3">
-          {query.trim() === "" ? (
+          {query.trim() === "" && !lastAdded ? (
             <Card>
               <EmptyState
                 icon={Search}
-                title="Ready to sell"
-                description="Scan a barcode, or type part of a name, generic, brand, company or SKU. Press Enter to add the top result."
+                title={locale === "bn" ? "বিক্রয়ের জন্য প্রস্তুত" : "Ready to sell"}
+                description={locale === "bn" ? "বারকোড স্ক্যান করুন, অথবা নাম, জেনেরিক, ব্র্যান্ড, কোম্পানি কিংবা SKU লিখুন। পণ্য যোগ করতে এন্টার চাপুন বা ফলাফলে ক্লিক করুন।" : "Scan a barcode, or type part of a name, generic, brand, company or SKU. Press Enter to add the top result."}
               />
             </Card>
           ) : search.status === "error" ? (
-            <Alert tone="danger" title="Search failed">
+            <Alert tone="danger" title={locale === "bn" ? "খোঁজ করা যায়নি" : "Search failed"}>
               {search.message}
             </Alert>
           ) : (
-            <ul id={listId} role="listbox" aria-label="Search results" className="flex flex-col gap-2">
+            <ul id={listId} role="listbox" aria-label={locale === "bn" ? "খোঁজের ফলাফল" : "Search results"} className="flex flex-col gap-2">
               {search.status === "loading" && search.items.length === 0
                 ? [0, 1, 2].map((i) => <Skeleton key={i} className="h-[4.5rem]" />)
                 : null}
@@ -266,30 +561,37 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
                           <span className="text-base font-semibold">{m.name}</span>
                           {m.strength ? <span className="text-sm text-muted-foreground">{m.strength}</span> : null}
                           {m.prescriptionRequired ? <Badge tone="info">Rx</Badge> : null}
-                          {m.exactMatch ? <Badge tone="primary">Barcode match</Badge> : null}
+                          {m.exactMatch ? <Badge tone="primary">{locale === "bn" ? "বারকোড মিলেছে" : "Barcode match"}</Badge> : null}
                         </span>
                         <span className="truncate text-xs text-muted-foreground">
-                          {[m.genericName, m.dosageForm, m.companyName].filter(Boolean).join(" · ") || "—"}
+                          {[m.genericName, m.brandName, m.dosageForm, m.companyName].filter(Boolean).join(" · ") || "—"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {locale === "bn" ? "বিক্রয় একক" : "Sell unit"}: {m.unit}{m.packSize > 1 ? ` · ${locale === "bn" ? "প্যাকের পরিমাণ" : "pack size"}: ${m.packSize}` : ""}
+                        </span>
+                        <span className="truncate text-[11px] text-muted-foreground">
+                          {[m.barcode ? `Barcode: ${m.barcode}` : null, m.sku ? `SKU: ${m.sku}` : null].filter(Boolean).join(" · ")}
                         </span>
                       </span>
                       <span className="flex shrink-0 flex-col items-end gap-1">
                         {out ? (
                           <span className="inline-flex items-center gap-1 text-sm font-medium text-danger-text">
                             <PackageX className="size-4" aria-hidden />
-                            Out of stock
+                            {locale === "bn" ? "স্টক নেই" : "Out of stock"}
                           </span>
                         ) : (
                           <>
                             {m.salePrice !== null ? (
                               <MoneyText amount={m.salePrice} fractionDigits={2} className="text-lg font-semibold" />
                             ) : (
-                              <span className="text-sm text-muted-foreground">Price not set</span>
+                              <span className="text-sm text-muted-foreground">{locale === "bn" ? "দাম দেওয়া নেই" : "Price not set"}</span>
                             )}
+                            {m.mrp !== null ? <span className="text-[11px] text-muted-foreground">{locale === "bn" ? "এমআরপি" : "MRP"} <MoneyText amount={m.mrp} fractionDigits={2} className="inline" /></span> : null}
                             <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className="tabular">{m.sellableQty} in stock</span>
-                              {m.batchCount > 1 ? <span>{m.batchCount} batches</span> : null}
+                              <span className="tabular">{m.sellableQty.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD")} {locale === "bn" ? "টি মজুত" : "in stock"}</span>
+                              {m.batchCount > 1 ? <span>{m.batchCount.toLocaleString(locale === "bn" ? "bn-BD" : "en-BD")} {locale === "bn" ? "টি ব্যাচ" : "batches"}</span> : null}
                             </span>
-                            {m.nearestExpiry ? <span className="text-xs text-muted-foreground">Next expiry {formatDate(m.nearestExpiry)}</span> : null}
+                            {m.nearestExpiry ? <span className="text-xs text-muted-foreground">{locale === "bn" ? "পরবর্তী মেয়াদ" : "Next expiry"} {formatDate(m.nearestExpiry)}</span> : null}
                           </>
                         )}
                       </span>
@@ -299,7 +601,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
               })}
               {search.status === "ready" && search.items.length === 0 ? (
                 <li className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-                  Nothing matches “{query.trim()}”. Check the spelling, or try the generic name, company, barcode or SKU.
+                  {locale === "bn" ? `“${query.trim()}” মেলেনি। বানান পরীক্ষা করুন, অথবা জেনেরিক, কোম্পানি, বারকোড বা SKU দিয়ে খুঁজুন।` : `Nothing matches “${query.trim()}”. Check the spelling, or try the generic name, company, barcode or SKU.`}
                 </li>
               ) : null}
             </ul>
@@ -360,6 +662,21 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
                             {strength ? <span className="text-sm font-normal text-muted-foreground">{strength}</span> : null}
                             {line.prescriptionRequired || priced?.prescriptionRequired ? <Badge tone="info">Rx</Badge> : null}
                           </p>
+                          {line.genericName || line.brandName || line.dosageForm || line.companyName ? (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {[line.genericName, line.brandName, line.dosageForm, line.companyName].filter(Boolean).join(" · ")}
+                            </p>
+                          ) : null}
+                          {line.unit ? <p className="text-xs text-muted-foreground">{locale === "bn" ? "বিক্রয় একক" : "Sell unit"}: {line.unit}{(line.packSize ?? 1) > 1 ? ` · ${locale === "bn" ? "প্যাকের পরিমাণ" : "pack size"}: ${line.packSize}` : ""}</p> : null}
+                          {line.barcode || line.sku ? (
+                            <p className="mt-0.5 break-all text-[11px] text-muted-foreground">
+                              {[line.barcode ? `Barcode: ${line.barcode}` : null, line.sku ? `SKU: ${line.sku}` : null].filter(Boolean).join(" · ")}
+                            </p>
+                          ) : null}
+                          {line.salePrice ? <p className="text-xs text-muted-foreground">{line.batchCount && line.batchCount > 1 ? "First-expiry batch price" : "Unit price"} <MoneyText amount={line.salePrice} fractionDigits={2} className="inline" /></p> : null}
+                          {line.mrp ? <p className="text-xs text-muted-foreground">MRP <MoneyText amount={line.mrp} fractionDigits={2} className="inline" /></p> : null}
+                          {line.sellableQty !== undefined ? <p className="text-xs text-muted-foreground">{locale === "bn" ? "মজুত আছে" : "Available stock"}: {line.sellableQty}</p> : null}
+                          {line.nearestExpiry ? <p className="text-xs text-muted-foreground">{locale === "bn" ? "পরবর্তী মেয়াদ" : "Next expiry"}: {formatDate(line.nearestExpiry)}</p> : null}
                           {line.batchLabel ? <p className="text-xs text-muted-foreground">Batch {line.batchLabel}</p> : null}
                           {priced && priced.batches > 1 ? (
                             <p className="text-xs text-muted-foreground">Taken from {priced.batches} batches</p>
@@ -370,7 +687,7 @@ export function PosTerminal({ actions, canPickCustomer, onSaleComplete }: Props)
                             <>
                               <MoneyText amount={priced.lineTotal} fractionDigits={2} className="text-base font-semibold" />
                               {priced.discount !== "0" && Number(priced.discount) > 0 ? (
-                                <p className="text-xs text-success-text">Saves ৳{priced.discount}</p>
+                                <p className="text-xs text-success-text">Saves <MoneyText amount={priced.discount} fractionDigits={2} className="inline" /></p>
                               ) : null}
                             </>
                           ) : (

@@ -14,7 +14,19 @@ export type CartLine = {
   name?: string;
   strength?: string | null;
   unit?: string;
+  packSize?: number;
   prescriptionRequired?: boolean;
+  genericName?: string | null;
+  brandName?: string | null;
+  dosageForm?: string | null;
+  companyName?: string | null;
+  barcode?: string | null;
+  sku?: string | null;
+  mrp?: string | null;
+  salePrice?: string | null;
+  batchCount?: number;
+  sellableQty?: number;
+  nearestExpiry?: string | null;
   quantity: number;
   discountType: DiscountType;
   /** Text as typed; the server parses it. */
@@ -29,7 +41,19 @@ export type CartMedicine = {
   name: string;
   strength?: string | null;
   unit?: string;
+  packSize?: number;
   prescriptionRequired?: boolean;
+  genericName?: string | null;
+  brandName?: string | null;
+  dosageForm?: string | null;
+  companyName?: string | null;
+  barcode?: string | null;
+  sku?: string | null;
+  mrp?: string | null;
+  salePrice?: string | null;
+  batchCount?: number;
+  sellableQty?: number;
+  nearestExpiry?: string | null;
 };
 
 export type CartAction =
@@ -58,7 +82,22 @@ export function cartReducer(lines: CartLine[], action: CartAction): CartLine[] {
       const add = clampQuantity(action.quantity ?? 1);
       if (existing) {
         return lines.map((l) =>
-          l.key === existing.key ? { ...l, quantity: clampQuantity(l.quantity + add) } : l,
+          l.key === existing.key ? {
+            ...l,
+            quantity: clampQuantity(l.quantity + add),
+            genericName: action.medicine.genericName ?? l.genericName ?? null,
+            brandName: action.medicine.brandName ?? l.brandName ?? null,
+            packSize: action.medicine.packSize ?? l.packSize ?? 1,
+            dosageForm: action.medicine.dosageForm ?? l.dosageForm ?? null,
+            companyName: action.medicine.companyName ?? l.companyName ?? null,
+            barcode: action.medicine.barcode ?? l.barcode ?? null,
+            sku: action.medicine.sku ?? l.sku ?? null,
+            mrp: action.medicine.mrp ?? l.mrp ?? null,
+            salePrice: action.medicine.salePrice ?? l.salePrice ?? null,
+            batchCount: action.medicine.batchCount ?? l.batchCount,
+            sellableQty: action.medicine.sellableQty ?? l.sellableQty,
+            nearestExpiry: action.medicine.nearestExpiry ?? l.nearestExpiry ?? null,
+          } : l,
         );
       }
       if (lines.length >= MAX_LINES) return lines;
@@ -70,7 +109,19 @@ export function cartReducer(lines: CartLine[], action: CartAction): CartLine[] {
           name: action.medicine.name,
           strength: action.medicine.strength ?? null,
           unit: action.medicine.unit,
+          packSize: action.medicine.packSize ?? 1,
           prescriptionRequired: action.medicine.prescriptionRequired,
+          genericName: action.medicine.genericName ?? null,
+          brandName: action.medicine.brandName ?? null,
+          dosageForm: action.medicine.dosageForm ?? null,
+          companyName: action.medicine.companyName ?? null,
+          barcode: action.medicine.barcode ?? null,
+          sku: action.medicine.sku ?? null,
+          mrp: action.medicine.mrp ?? null,
+          salePrice: action.medicine.salePrice ?? null,
+          batchCount: action.medicine.batchCount,
+          sellableQty: action.medicine.sellableQty,
+          nearestExpiry: action.medicine.nearestExpiry ?? null,
           quantity: add,
           discountType: "NONE",
           discountValue: "",

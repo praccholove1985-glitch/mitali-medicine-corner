@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLocale } from "@/lib/locale";
 import Link from "next/link";
 import { FolderTree, PackageSearch, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ function first(value: string | string[] | undefined): string {
 }
 
 export default async function MedicinesPage({ searchParams }: Props) {
+  const locale = await getLocale();
   const session = await requireSession();
   if (!session.permissions.includes("medicine.view")) return <Forbidden section="medicines" />;
 
@@ -134,6 +136,7 @@ export default async function MedicinesPage({ searchParams }: Props) {
         </div>
         <div className="border-t">
           <DataTable
+            locale={locale}
             caption="Medicines"
             columns={columns}
             rows={items}

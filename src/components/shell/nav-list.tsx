@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { isActive, visibleNavGroups } from "@/config/navigation";
 import { cn } from "@/lib/utils";
+import { navText, type Locale } from "@/lib/i18n";
 
 type NavListProps = {
   /** `rail` collapses labels to icons on tablet widths; `full` always shows them. */
@@ -12,16 +13,17 @@ type NavListProps = {
   onNavigate?: () => void;
   /** Effective permission codes; hides modules the user cannot use. */
   permissions: readonly string[];
+  locale: Locale;
 };
 
-export function NavList({ variant, onNavigate, permissions }: NavListProps) {
+export function NavList({ variant, onNavigate, permissions, locale }: NavListProps) {
   const pathname = usePathname();
   const rail = variant === "rail";
 
   return (
-    <nav aria-label="Main" className="flex flex-col gap-5 px-2 pb-4">
+    <nav aria-label={locale === "bn" ? "প্রধান নেভিগেশন" : "Main"} className="flex flex-col gap-5 px-2 pb-4">
       {visibleNavGroups(permissions).map((group) => (
-        <div key={group.label}>
+        <div key={navText(locale, group.label)}>
           <p
             className={cn(
               "px-3 pb-1.5 text-[11px] font-semibold tracking-wider text-sidebar-muted uppercase",
@@ -40,7 +42,7 @@ export function NavList({ variant, onNavigate, permissions }: NavListProps) {
                     href={item.href}
                     onClick={onNavigate}
                     aria-current={active ? "page" : undefined}
-                    title={rail ? item.label : undefined}
+                    title={rail ? navText(locale, item.label) : undefined}
                     className={cn(
                       "group flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
                       rail && "justify-center lg:justify-start",
@@ -51,7 +53,7 @@ export function NavList({ variant, onNavigate, permissions }: NavListProps) {
                   >
                     <Icon className="size-[18px] shrink-0" aria-hidden />
                     <span className={cn("min-w-0 flex-1 truncate", rail && "sr-only lg:not-sr-only")}>
-                      {item.label}
+                      {navText(locale, item.label)}
                     </span>
                     {item.phase !== null ? (
                       <span
@@ -63,7 +65,7 @@ export function NavList({ variant, onNavigate, permissions }: NavListProps) {
                           rail && "hidden lg:inline",
                         )}
                       >
-                        <span className="sr-only">Planned for </span>P{item.phase}
+                        <span className="sr-only">{locale === "bn" ? "পরিকল্পিত ফেজ " : "Planned for "}</span>P{item.phase}
                       </span>
                     ) : null}
                   </Link>

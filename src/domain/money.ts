@@ -17,12 +17,12 @@ function groupLakh(integerDigits: string): string {
 export type FormatMoneyOptions = {
   /** Digits after the decimal point. Default 2. Extra digits are rounded half up. */
   fractionDigits?: number;
-  /** Prefix with the taka sign. Default true. */
+  /** Prefix with the currency code BDT. Default true. */
   symbol?: boolean;
 };
 
 /**
- * Format a decimal string as taka. Returns null when the input is not a valid
+ * Format a decimal string as Bangladeshi taka. Returns null when the input is not a valid
  * decimal, so callers can show "Not reported" rather than a made-up zero.
  */
 export function formatMoney(
@@ -52,7 +52,7 @@ export function formatMoney(
     groupLakh(whole) + (fractionDigits > 0 ? "." + kept : "");
   const isZero = /^[0,.]*$/.test(body);
   const sign = negative && !isZero ? "-" : "";
-  return `${sign}${symbol ? "৳" : ""}${body}`;
+  return `${sign}${symbol ? "BDT " : ""}${body}`;
 }
 
 const AMOUNT_PATTERN = /^(\d{1,10})(?:\.(\d{1,4}))?$/;
