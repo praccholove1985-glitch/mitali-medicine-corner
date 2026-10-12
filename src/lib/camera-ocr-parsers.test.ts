@@ -50,16 +50,16 @@ describe("common Bangladeshi medicine label layouts", () => {
   it("separates Calbo 500 from Calcium 500 mg and identifies Square on a blister pack", () => {
     const raw = ["Calbo 500", "Calcium 500 mg", "SQUARE", "Mfg. Lic. No. 235 & 460"].join("\n");
     const details = suggestProductLabelDetails(raw);
-    expect(details.name).toBe("Calbo 500 Tablet");
+    expect(details.name).toBe("Calbo 500");
     expect(details.brandName).toBe("Calbo");
     expect(details.genericName).toBe("Calcium");
     expect(details.strength).toBe("500 mg");
-    expect(details.dosageForm).toBe("Tablet");
+    expect(details.dosageForm).toBe("");
     expect(details.companyName).toBe("SQUARE");
   });
 
   it("separates Zimax 500 from Azithromycin 500 mg", () => {
-    const raw = ["ZIMAX 500", "Azithromycin 500 mg", "SQUARE"].join("\n");
+    const raw = ["ZIMAX 500", "Azithromycin 500 mg", "18 Tablets", "SQUARE"].join("\n");
     const details = suggestProductLabelDetails(raw);
     expect(details.name).toBe("ZIMAX 500 Tablet");
     expect(details.brandName).toBe("ZIMAX");
