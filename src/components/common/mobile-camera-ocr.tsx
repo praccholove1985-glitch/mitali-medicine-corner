@@ -157,6 +157,32 @@ function prepareImageForTextRecognition(image: HTMLCanvasElement | HTMLImageElem
   return canvas;
 }
 
+function createLabelOcrRegions(image: HTMLCanvasElement): HTMLCanvasElement[] {
+  const width = image.width;
+  const height = image.height;
+  // Four overlapping regions allow small text on a full medicine pack to be
+  // OCR'd at higher effective resolution than a single whole-image pass.
+  const regionWidth = Math.max(1, Math.round(width * 0.62));
+  const regionHeight = Math.max(1, Math.round(height * 0.62));
+  const maxX = Math.max(0, width - regionWidth);
+  const maxY = Math.max(0, height - regionHeight);
+  const starts: Array<[number, number]> = [
+    [0, 0],
+    [maxX, 0],
+    [0, maxY],
+    [maxX, maxY],
+  ];
+  return starts.map(([x, y]) => {
+    const crop = document.createElement("canvas");
+    crop.width = regionWidth;
+    crop.height = regionHeight;
+    const context = crop.getContext("2d", { willReadFrequently: true });
+    if (!context) throw new Error("Could not prepare a close-up of the package text.");
+    context.drawImage(image, x, y, regionWidth, regionHeight, 0, 0, regionWidth, regionHeight);
+    return prepareImageForTextRecognition(crop);
+  });
+}
+
 function mergeRecognizedText(primary: string, supplemental: string): string {
   const lines: string[] = [];
   const keys: string[] = [];
@@ -290,62 +316,85 @@ export function MobileCameraOCR({
       }
 
       const api = await loadTesseract();
+      const sourceImage = image as HTMLCanvasElement;
       const preparedImage = prepareImageForTextRecognition(image);
-      let pass = 0;
-      let primaryText = "";
-      let supplementalText = "";
-      let passError: unknown = null;
+      const labelRegions = mode === "product" ? createLabelOcrRegions(sourceImage) : [];
       const worker = await api.createWorker("eng", 1, {
         logger: (message) => {
           if (message.status === "recognizing text" && typeof message.progress === "number") {
-            const withinPass = Math.round(message.progress * 100);
-            setProgress(pass === 0 ? Math.round(withinPass * 0.45) : 45 + Math.round(withinPass * 0.55));
+            // The whole-image passes take about 60% of the work; product-label
+            // close-ups use the remaining progress. Invoice mode only runs two.
+            const base = mode === "product" ? currentPass.current * 15 : currentPass.current * 50;
+            const span = mode === "product" ? 15 : 50;
+            setProgress(Math.min(99, Math.round(base + message.progress * span)));
           }
         },
       });
 
+      const recognized: string[] = [];
+      const currentPass = { current: 0 };
+      let passError: unknown = null;
+
       try {
-        // Medicine packages place text in separate regions. A regular layout pass
-        // followed by sparse-text detection helps recover small composition,
-        // strength and manufacturer lines that a single pass can miss.
         try {
-          pass = 0;
+          currentPass.current = 0;
           await worker.setParameters({
             tessedit_pageseg_mode: "3",
             preserve_interword_spaces: "1",
             user_defined_dpi: "300",
           });
           const result = await worker.recognize(preparedImage);
-          primaryText = result.data.text.trim();
+          recognized.push(result.data.text);
         } catch (cause) {
           passError = cause;
         }
 
         try {
-          pass = 1;
+          currentPass.current = 1;
           await worker.setParameters({
             tessedit_pageseg_mode: "11",
             preserve_interword_spaces: "1",
             user_defined_dpi: "300",
           });
           const result = await worker.recognize(preparedImage);
-          supplementalText = result.data.text.trim();
+          recognized.push(result.data.text);
         } catch (cause) {
           passError = passError ?? cause;
+        }
+
+        if (mode === "product") {
+          await worker.setParameters({
+            tessedit_pageseg_mode: "11",
+            preserve_interword_spaces: "1",
+            user_defined_dpi: "300",
+          });
+          for (let index = 0; index < labelRegions.length; index += 1) {
+            try {
+              currentPass.current = index + 2;
+              const result = await worker.recognize(labelRegions[index]);
+              recognized.push(result.data.text);
+            } catch (cause) {
+              passError = passError ?? cause;
+            }
+          }
         }
       } finally {
         await worker.terminate().catch(() => undefined);
       }
 
-      const extracted = mergeRecognizedText(primaryText, supplementalText);
+      const extracted = recognized.reduce(
+        (combined, textPart) => mergeRecognizedText(combined, textPart),
+        "",
+      );
       if (!extracted) {
         if (passError) throw passError;
         setError(text(
-          "No readable text was found. Move closer, improve the light, and try again.",
-          "পড়ার মতো লেখা পাওয়া যায়নি। ক্যামেরা কাছে ধরুন, আলো বাড়ান, আবার চেষ্টা করুন।",
+          "No readable text was found. Move closer to the printed name/strength, hold steady, and try again.",
+          "পড়ার মতো লেখা পাওয়া যায়নি। নাম/শক্তির লেখা কাছে এনে স্থিরভাবে ধরে আবার চেষ্টা করুন।",
         ));
         return;
       }
+      setProgress(100);
       onExtractedRef.current(extracted);
       setOpen(false);
     } catch (cause) {
