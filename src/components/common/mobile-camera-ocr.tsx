@@ -46,6 +46,48 @@ type OCRWindow = Window & {
 
 let barcodeLibraryPromise: Promise<NonNullable<OCRWindow["ZXingBrowser"]>> | null = null;
 
+type CloudOCRResponse = {
+  configured?: boolean;
+  text?: string;
+  provider?: string;
+};
+
+/** Try server-side Cloud Vision first. Local OCR remains the fallback. */
+async function readWithCloudVision(image: HTMLCanvasElement | HTMLImageElement): Promise<string> {
+  try {
+    const canvas = image instanceof HTMLCanvasElement ? image : (() => {
+      const fallback = document.createElement("canvas");
+      fallback.width = image.naturalWidth;
+      fallback.height = image.naturalHeight;
+      const context = fallback.getContext("2d");
+      if (!context) return null;
+      context.drawImage(image, 0, 0);
+      return fallback;
+    })();
+    if (!canvas || canvas.width < 1 || canvas.height < 1) return "";
+
+    // Compress the photo so the JSON request stays below serverless body limits.
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
+    const separator = dataUrl.indexOf(",");
+    if (separator < 0) return "";
+    const imageBase64 = dataUrl.slice(separator + 1);
+    if (!imageBase64) return "";
+
+    const response = await fetch("/api/ocr/medicine", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ imageBase64, mimeType: "image/jpeg" }),
+    });
+    if (!response.ok) return "";
+    const result = await response.json() as CloudOCRResponse;
+    return result.configured && typeof result.text === "string" ? result.text.trim() : "";
+  } catch {
+    // Network errors or missing cloud configuration must not block local OCR.
+    return "";
+  }
+}
+
 async function readBarcodeFromImage(canvas: HTMLCanvasElement): Promise<string | null> {
   const win = window as OCRWindow;
   if (win.BarcodeDetector) {
@@ -334,6 +376,17 @@ export function MobileCameraOCR({
         }
       }
 
+      if (mode === "product") {
+        setProgress(12);
+        const cloudText = await readWithCloudVision(image);
+        if (cloudText) {
+          setProgress(100);
+          onExtractedRef.current(cloudText);
+          setOpen(false);
+          return;
+        }
+      }
+
       const api = await loadTesseract();
       const preparedImage = prepareImageForTextRecognition(image);
       const currentPass = { current: 0 };
@@ -525,7 +578,7 @@ export function MobileCameraOCR({
             <DialogDescription>
               {mode === "invoice"
                 ? text("Fit the full invoice page inside the camera view. Capture it to read the printed text. The result will be a draft for you to review, not a saved purchase.", "পুরো ইনভয়েসটি ক্যামেরার ফ্রেমে রাখুন। ছবি তুলে লেখা পড়ুন। ফলাফল শুধু যাচাই করার খসড়া হবে—কোনো ক্রয় স্বয়ংক্রিয়ভাবে সংরক্ষণ হবে না।")
-                : text("Hold the package so its name, brand, strength and composition are sharp and well lit. The extracted details are suggestions for you to review.", "প্যাকেট এমনভাবে ধরুন যেন নাম, ব্র্যান্ড, শক্তি ও উপাদানের লেখা পরিষ্কার দেখা যায়। পড়া তথ্যগুলো যাচাই করার জন্য প্রস্তাব হিসেবে দেখানো হবে।")}
+                : text("When configured, Google Cloud Vision reads the label first; on-device OCR is the fallback. Cloud OCR sends the product photo to Google. Keep the name, strength and composition sharp, and review all suggestions.", "প্যাকেট এমনভাবে ধরুন যেন নাম, ব্র্যান্ড, শক্তি ও উপাদানের লেখা পরিষ্কার দেখা যায়। পড়া তথ্যগুলো যাচাই করার জন্য প্রস্তাব হিসেবে দেখানো হবে।")}
             </DialogDescription>
           </DialogHeader>
           <DialogBody className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-5">
