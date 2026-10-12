@@ -6,16 +6,19 @@ const outputDir = join(process.cwd(), "public", "models");
 const modelAssets = [
   {
     name: "ch_PP-OCRv4_det_infer.onnx",
+    url: "https://huggingface.co/webnn/PP-OCRv4-ONNX/resolve/main/ch_PP-OCRv4_det.onnx",
     size: 4_745_517,
     sha256: "30a86f5731181461d08021402766601e4302a9b9b9666be8aff402696339cdff",
   },
   {
     name: "ch_PP-OCRv4_rec_infer.onnx",
+    url: "https://huggingface.co/webnn/PP-OCRv4-ONNX/resolve/main/ch_PP-OCRv4_rec.onnx",
     size: 10_822_323,
     sha256: "06b3e6af6c59a1ba5d53790ed8c2e4b2de389870b6cf5a97f349f3412cb269c0",
   },
   {
     name: "ppocr_keys_v1.txt",
+    url: "https://huggingface.co/webnn/PP-OCRv4-ONNX/resolve/main/ch_PP-OCR_keys_v1.txt",
     size: 26_249,
     sha256: "28b2362ad4ab2dc38769aa72feb535e3a9ddb3fd2a7585a05920e6393b1dc7f7",
   },
@@ -43,7 +46,7 @@ for (const asset of modelAssets) {
     continue;
   }
 
-  const url = `https://github.com/gutenye/ocr/releases/download/models-v1/${asset.name}`;
+  const url = asset.url;
   console.log(`Downloading local OCR asset: ${asset.name}`);
   const response = await fetch(url, { signal: AbortSignal.timeout(120_000) });
   if (!response.ok) {
