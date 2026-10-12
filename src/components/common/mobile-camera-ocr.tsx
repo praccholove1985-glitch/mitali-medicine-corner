@@ -46,46 +46,43 @@ type OCRWindow = Window & {
 
 let barcodeLibraryPromise: Promise<NonNullable<OCRWindow["ZXingBrowser"]>> | null = null;
 
-type CloudOCRResponse = {
-  configured?: boolean;
-  text?: string;
-  provider?: string;
+type PaddleLine = { text?: unknown; score?: unknown };
+type PaddleResult = { items?: PaddleLine[] };
+type PaddleEngine = {
+  predict(image: HTMLCanvasElement): Promise<PaddleResult[]>;
 };
 
-/** Try server-side Cloud Vision first. Local OCR remains the fallback. */
-async function readWithCloudVision(image: HTMLCanvasElement | HTMLImageElement): Promise<string> {
-  try {
-    const canvas = image instanceof HTMLCanvasElement ? image : (() => {
-      const fallback = document.createElement("canvas");
-      fallback.width = image.naturalWidth;
-      fallback.height = image.naturalHeight;
-      const context = fallback.getContext("2d");
-      if (!context) return null;
-      context.drawImage(image, 0, 0);
-      return fallback;
-    })();
-    if (!canvas || canvas.width < 1 || canvas.height < 1) return "";
+let paddleOcrPromise: Promise<PaddleEngine> | null = null;
 
-    // Compress the photo so the JSON request stays below serverless body limits.
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
-    const separator = dataUrl.indexOf(",");
-    if (separator < 0) return "";
-    const imageBase64 = dataUrl.slice(separator + 1);
-    if (!imageBase64) return "";
-
-    const response = await fetch("/api/ocr/medicine", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store",
-      body: JSON.stringify({ imageBase64, mimeType: "image/jpeg" }),
-    });
-    if (!response.ok) return "";
-    const result = await response.json() as CloudOCRResponse;
-    return result.configured && typeof result.text === "string" ? result.text.trim() : "";
-  } catch {
-    // Network errors or missing cloud configuration must not block local OCR.
-    return "";
+/** Load and cache PaddleOCR.js (PP-OCRv5) in the browser. No OCR API key is needed. */
+async function loadPaddleOCR(): Promise<PaddleEngine> {
+  if (!paddleOcrPromise) {
+    paddleOcrPromise = import("@paddleocr/paddleocr-js")
+      .then(({ PaddleOCR }) => PaddleOCR.create({
+        lang: "en",
+        ocrVersion: "PP-OCRv5",
+        worker: true,
+        ortOptions: {
+          backend: "wasm",
+          wasmPaths: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/",
+          numThreads: 1,
+          simd: true,
+        },
+      }) as unknown as Promise<PaddleEngine>)
+      .catch((error: unknown) => {
+        paddleOcrPromise = null;
+        throw error;
+      });
   }
+  return paddleOcrPromise;
+}
+
+function textFromPaddleResult(result: PaddleResult | undefined): string {
+  if (!result || !Array.isArray(result.items)) return "";
+  return result.items
+    .map((item) => typeof item.text === "string" ? item.text.replace(/\s+/g, " ").trim() : "")
+    .filter(Boolean)
+    .join("\n");
 }
 
 async function readBarcodeFromImage(canvas: HTMLCanvasElement): Promise<string | null> {
@@ -376,19 +373,46 @@ export function MobileCameraOCR({
         }
       }
 
+      const preparedImage = prepareImageForTextRecognition(image);
+
+      // PaddleOCR is the primary, genuinely different OCR engine for medicine
+      // labels. It detects and recognizes text lines in-browser via ONNX Runtime.
+      // A second focused pass gives the main brand/logo another opportunity.
       if (mode === "product") {
-        setProgress(12);
-        const cloudText = await readWithCloudVision(image);
-        if (cloudText) {
-          setProgress(100);
-          onExtractedRef.current(cloudText);
-          setOpen(false);
-          return;
+        try {
+          setProgress(8);
+          const paddle = await loadPaddleOCR();
+          setProgress(28);
+          const wholeResults = await paddle.predict(preparedImage);
+          const wholeText = wholeResults.map(textFromPaddleResult).filter(Boolean).join("\n");
+          let focusedText = "";
+          let focused: HTMLCanvasElement | null = null;
+          try {
+            setProgress(52);
+            focused = createLabelFocusRegion(preparedImage);
+            const focusResults = await paddle.predict(focused);
+            focusedText = focusResults.map(textFromPaddleResult).filter(Boolean).join("\n");
+          } finally {
+            if (focused) {
+              focused.width = 0;
+              focused.height = 0;
+            }
+          }
+
+          const paddleText = mergeRecognizedText(wholeText, focusedText);
+          if (paddleText.length >= 6 && /\p{L}{3,}/u.test(paddleText)) {
+            setProgress(100);
+            onExtractedRef.current(paddleText);
+            setOpen(false);
+            return;
+          }
+        } catch {
+          // The local Tesseract engine below is the safety net if model loading,
+          // browser WASM support, or PaddleOCR inference fails.
         }
       }
 
       const api = await loadTesseract();
-      const preparedImage = prepareImageForTextRecognition(image);
       const currentPass = { current: 0 };
       const worker = await api.createWorker("eng", 1, {
         logger: (message) => {
@@ -578,7 +602,7 @@ export function MobileCameraOCR({
             <DialogDescription>
               {mode === "invoice"
                 ? text("Fit the full invoice page inside the camera view. Capture it to read the printed text. The result will be a draft for you to review, not a saved purchase.", "পুরো ইনভয়েসটি ক্যামেরার ফ্রেমে রাখুন। ছবি তুলে লেখা পড়ুন। ফলাফল শুধু যাচাই করার খসড়া হবে—কোনো ক্রয় স্বয়ংক্রিয়ভাবে সংরক্ষণ হবে না।")
-                : text("When configured, Google Cloud Vision reads the label first; on-device OCR is the fallback. Cloud OCR sends the product photo to Google. Keep the name, strength and composition sharp, and review all suggestions.", "প্যাকেট এমনভাবে ধরুন যেন নাম, ব্র্যান্ড, শক্তি ও উপাদানের লেখা পরিষ্কার দেখা যায়। পড়া তথ্যগুলো যাচাই করার জন্য প্রস্তাব হিসেবে দেখানো হবে।")}
+                : text("PaddleOCR reads the label on this device first, with on-device Tesseract as a fallback. The photo is not sent to a cloud OCR service. Keep the name, strength and composition sharp, and review all suggestions.", "প্যাকেট এমনভাবে ধরুন যেন নাম, ব্র্যান্ড, শক্তি ও উপাদানের লেখা পরিষ্কার দেখা যায়। পড়া তথ্যগুলো যাচাই করার জন্য প্রস্তাব হিসেবে দেখানো হবে।")}
             </DialogDescription>
           </DialogHeader>
           <DialogBody className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-5">
