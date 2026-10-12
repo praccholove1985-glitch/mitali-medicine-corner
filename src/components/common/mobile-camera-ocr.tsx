@@ -157,13 +157,14 @@ function prepareImageForTextRecognition(image: HTMLCanvasElement | HTMLImageElem
   return canvas;
 }
 
-function createLabelOcrRegions(image: HTMLCanvasElement): HTMLCanvasElement[] {
+function createLabelOcrRegion(image: HTMLCanvasElement, index: number): HTMLCanvasElement {
   const width = image.width;
   const height = image.height;
-  // Four overlapping regions allow small text on a full medicine pack to be
-  // OCR'd at higher effective resolution than a single whole-image pass.
-  const regionWidth = Math.max(1, Math.round(width * 0.62));
-  const regionHeight = Math.max(1, Math.round(height * 0.62));
+  // Crop the already-enhanced image rather than the smaller camera canvas.
+  // This gives label characters more pixels per OCR pass without holding four
+  // large crop canvases in memory at the same time on a phone.
+  const regionWidth = Math.max(1, Math.round(width * 0.72));
+  const regionHeight = Math.max(1, Math.round(height * 0.72));
   const maxX = Math.max(0, width - regionWidth);
   const maxY = Math.max(0, height - regionHeight);
   const starts: Array<[number, number]> = [
@@ -172,15 +173,14 @@ function createLabelOcrRegions(image: HTMLCanvasElement): HTMLCanvasElement[] {
     [0, maxY],
     [maxX, maxY],
   ];
-  return starts.map(([x, y]) => {
-    const crop = document.createElement("canvas");
-    crop.width = regionWidth;
-    crop.height = regionHeight;
-    const context = crop.getContext("2d", { willReadFrequently: true });
-    if (!context) throw new Error("Could not prepare a close-up of the package text.");
-    context.drawImage(image, x, y, regionWidth, regionHeight, 0, 0, regionWidth, regionHeight);
-    return crop;
-  });
+  const [x, y] = starts[Math.max(0, Math.min(starts.length - 1, index))];
+  const crop = document.createElement("canvas");
+  crop.width = regionWidth;
+  crop.height = regionHeight;
+  const context = crop.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("Could not prepare a close-up of the package text.");
+  context.drawImage(image, x, y, regionWidth, regionHeight, 0, 0, regionWidth, regionHeight);
+  return crop;
 }
 
 function mergeRecognizedText(primary: string, supplemental: string): string {
@@ -316,9 +316,7 @@ export function MobileCameraOCR({
       }
 
       const api = await loadTesseract();
-      const sourceImage = image as HTMLCanvasElement;
       const preparedImage = prepareImageForTextRecognition(image);
-      const labelRegions = mode === "product" ? createLabelOcrRegions(sourceImage) : [];
       const currentPass = { current: 0 };
       const worker = await api.createWorker("eng", 1, {
         logger: (message) => {
@@ -368,14 +366,21 @@ export function MobileCameraOCR({
             preserve_interword_spaces: "1",
             user_defined_dpi: "300",
           });
-          for (let index = 0; index < labelRegions.length; index += 1) {
+          for (let index = 0; index < 4; index += 1) {
+            let region: HTMLCanvasElement | null = null;
             try {
               currentPass.current = index + 2;
-              const preparedRegion = prepareImageForTextRecognition(labelRegions[index]);
-              const result = await worker.recognize(preparedRegion);
+              region = createLabelOcrRegion(preparedImage, index);
+              const result = await worker.recognize(region);
               recognized.push(result.data.text);
             } catch (cause) {
               passError = passError ?? cause;
+            } finally {
+              if (region) {
+                // Release each large crop before preparing the next one.
+                region.width = 0;
+                region.height = 0;
+              }
             }
           }
         }

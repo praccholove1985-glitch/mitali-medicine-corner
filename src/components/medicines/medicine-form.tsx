@@ -7,9 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field } from "@/components/ui/field";
 import { Input, Select, Textarea } from "@/components/ui/input";
-import { MobileBarcodeScanner } from "@/components/common/mobile-barcode-scanner";
 import { MobileCameraOCR } from "@/components/common/mobile-camera-ocr";
-import { suggestProductLabelDetails, type ProductLabelSuggestions } from "@/lib/camera-ocr-parsers";
+import { productNameCandidatesFromLabel, suggestProductLabelDetails, type ProductLabelSuggestions } from "@/lib/camera-ocr-parsers";
 import type { Locale } from "@/lib/i18n";
 import { saveMedicineAction, type FormState } from "@/app/(app)/medicines/actions";
 import type { Catalogue, MedicineDetail } from "@/server/db/medicines";
@@ -34,7 +33,7 @@ export function MedicineForm({ medicine, initialBarcode = "", catalogue, canEdit
   const [categoryId, setCategoryId] = useState(state.values?.category_id ?? medicine?.categoryId ?? "");
   const barcodeRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
-  const [labelDraft, setLabelDraft] = useState<{ rawText: string; details: ProductLabelSuggestions } | null>(null);
+  const [labelDraft, setLabelDraft] = useState<{ rawText: string; details: ProductLabelSuggestions; nameCandidates: string[] } | null>(null);
   const [labelNotice, setLabelNotice] = useState<string | null>(null);
 
   // What the user typed wins over the saved record after a failed submit.
@@ -63,8 +62,17 @@ export function MedicineForm({ medicine, initialBarcode = "", catalogue, canEdit
           mode="product"
           locale={locale}
           label={locale === "bn" ? "পণ্যের লেখা স্ক্যান" : "Scan product label"}
+          onBarcodeDetected={(code) => {
+            // One camera capture can fill the barcode field and continue to text OCR.
+            if (barcodeRef.current) {
+              barcodeRef.current.value = code;
+              barcodeRef.current.focus();
+            }
+            return false;
+          }}
           onExtracted={(rawText) => {
-            setLabelDraft({ rawText, details: suggestProductLabelDetails(rawText) });
+            const details = suggestProductLabelDetails(rawText);
+            setLabelDraft({ rawText, details, nameCandidates: productNameCandidatesFromLabel(rawText) });
             setLabelNotice(null);
           }}
         />
@@ -84,6 +92,35 @@ export function MedicineForm({ medicine, initialBarcode = "", catalogue, canEdit
               <summary className="cursor-pointer text-sm font-medium">{locale === "bn" ? "প্যাকেট থেকে পড়া সম্পূর্ণ লেখা" : "Full text read from the package"}</summary>
               <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">{labelDraft.rawText}</pre>
             </details>
+            {labelDraft.nameCandidates.length > 0 ? (
+              <Field label={locale === "bn" ? "স্ক্যান থেকে শনাক্ত নাম বেছে নিন" : "Choose a product-name candidate from the scan"} htmlFor="ocr-product-name-candidate">
+                <Select
+                  id="ocr-product-name-candidate"
+                  value={labelDraft.details.brandName}
+                  onChange={(event) => setLabelDraft((current) => {
+                    if (!current) return current;
+                    const selected = event.target.value;
+                    const additions = [
+                      current.details.strength && !selected.toLocaleLowerCase().includes(current.details.strength.toLocaleLowerCase()) ? current.details.strength : "",
+                      current.details.dosageForm && !selected.toLocaleLowerCase().includes(current.details.dosageForm.toLocaleLowerCase()) ? current.details.dosageForm : "",
+                    ].filter(Boolean);
+                    return {
+                      ...current,
+                      details: {
+                        ...current.details,
+                        brandName: selected,
+                        name: selected ? [selected, ...additions].join(" ") : "",
+                      },
+                    };
+                  })}
+                >
+                  <option value="">{locale === "bn" ? "সঠিক নাম বেছে নিন" : "Select a candidate"}</option>
+                  {labelDraft.nameCandidates.map((candidate) => (
+                    <option key={candidate} value={candidate}>{candidate}</option>
+                  ))}
+                </Select>
+              </Field>
+            ) : null}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {([
                 ["name", locale === "bn" ? "পণ্যের নাম" : "Product name"],
@@ -262,15 +299,6 @@ export function MedicineForm({ medicine, initialBarcode = "", catalogue, canEdit
                 autoComplete="off"
                 spellCheck={false}
                 className="min-w-0 flex-1"
-              />
-              <MobileBarcodeScanner
-                size="sm"
-                onDetected={(code) => {
-                  if (barcodeRef.current) {
-                    barcodeRef.current.value = code;
-                    barcodeRef.current.focus();
-                  }
-                }}
               />
             </div>
           </Field>

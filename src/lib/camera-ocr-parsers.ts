@@ -72,6 +72,65 @@ function isLikelyProductLine(line: string): boolean {
   return true;
 }
 
+function rankProductNameCandidates(
+  lines: string[],
+  context: { companyName: string; genericName: string; strength: string },
+): string[] {
+  const company = context.companyName.trim().toLocaleLowerCase();
+  const generic = context.genericName.trim().toLocaleLowerCase();
+  const strengthKey = context.strength.toLocaleLowerCase().replace(/\s+/g, "");
+
+  return lines
+    .map((line) => {
+      const lower = line.toLocaleLowerCase();
+      if (company && (lower === company || lower.includes(company))) return { line, score: -100 };
+      if (generic && (lower === generic || lower.startsWith(generic + " "))) return { line, score: -100 };
+      if (/\b(?:each\s+(?:tablet|capsule)|contains|composition|active ingredient|generic name|manufactured|marketed by)\b/i.test(line)) {
+        return { line, score: -100 };
+      }
+
+      // A line that contains only a strength or dosage form is not a product name.
+      const identity = line
+        .replace(/\b\d+(?:\.\d+)?\s*(?:mg|mcg|µg|g|gm|kg|ml|iu|%)\b(?:\s*\/\s*\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml))?/gi, " ")
+        .replace(/\b(?:tablets?|tabs?\.?|capsules?|caps?\.?|syrup|suspension|drops?|cream|ointment|gel|lotion|injection|inhaler|sachet|suppository|solution|powder|bp|usp|ip)\b/gi, " ")
+        .replace(/[^\p{L}\s'-]/gu, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const letters = identity.replace(/[^\p{L}]/gu, "");
+      if (letters.length < 3) return { line, score: -100 };
+
+      const wordCount = identity.split(/\s+/).filter(Boolean).length;
+      const originalLetters = line.match(/\p{L}/gu) ?? [];
+      const uppercaseLetters = line.match(/\p{Lu}/gu) ?? [];
+      const uppercaseRatio = uppercaseLetters.length / Math.max(1, originalLetters.length);
+
+      let score = 0;
+      score += identity.length >= 4 && identity.length <= 28 ? 4 : identity.length <= 40 ? 2 : -2;
+      score += wordCount >= 1 && wordCount <= 3 ? 3 : wordCount <= 5 ? 1 : -3;
+      if (uppercaseRatio >= 0.65) score += 1;
+      if (line.length > 48) score -= 3;
+      if (/\b(?:batch|expiry|expiration|mrp|price|barcode|manufactured|marketed|pharmaceuticals?|laborator(?:y|ies)|limited|ltd\.?)\b/i.test(line)) score -= 5;
+      if (strengthKey && lower.replace(/\s+/g, "").includes(strengthKey)) score += 1;
+      return { line, score };
+    })
+    .filter((item) => item.score >= 4)
+    .sort((a, b) => b.score - a.score || a.line.length - b.line.length)
+    .map((item) => item.line)
+    .filter((line, index, all) => all.findIndex((item) => item.toLocaleLowerCase() === line.toLocaleLowerCase()) === index)
+    .slice(0, 6);
+}
+
+/** High-ranked label text candidates help users correct a noisy OCR guess quickly. */
+export function productNameCandidatesFromLabel(raw: string): string[] {
+  const lines = cleanLines(raw).filter(isLikelyProductLine);
+  const details = suggestProductLabelDetails(raw);
+  return rankProductNameCandidates(lines, {
+    companyName: details.companyName,
+    genericName: details.genericName,
+    strength: details.strength,
+  });
+}
+
 export function suggestProductLabelDetails(raw: string): ProductLabelSuggestions {
   const lines = cleanLines(raw);
   const full = lines.join("\n");
@@ -124,17 +183,12 @@ export function suggestProductLabelDetails(raw: string): ProductLabelSuggestions
   const dosageForm = forms.find(([pattern]) => pattern.test(full))?.[1] ?? "";
 
   const candidates = lines.filter(isLikelyProductLine);
-  const companyClean = companyName.trim().toLowerCase();
   const genericNormalized = normalizeIngredient(genericSource);
-  const brandLine = candidates.find((line) => {
-    const lower = line.toLowerCase();
-    if (companyClean && (lower === companyClean || lower.includes(companyClean))) return false;
-    if (genericSource && lower === genericSource.toLowerCase()) return false;
-    if (genericNormalized && (lower === genericNormalized.toLowerCase() || lower.startsWith(genericNormalized.toLowerCase() + " "))) return false;
-    // Keep the brand/product identity line, but reject text that is mostly an ingredient list.
-    if (/\b(?:each\s+(?:tablet|capsule)|contains|composition|active ingredient|generic name|manufactured|marketed by)\b/i.test(line)) return false;
-    return true;
-  }) ?? "";
+  const brandLine = rankProductNameCandidates(candidates, {
+    companyName,
+    genericName: genericNormalized,
+    strength,
+  })[0] ?? "";
 
   // A lot of medicine labels print the generic on the line immediately following "Composition"
   // without any explicit "Generic name" heading. Infer it only from a labelled composition
