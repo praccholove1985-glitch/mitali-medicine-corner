@@ -193,6 +193,28 @@ function prepareImageForTextRecognition(image: HTMLCanvasElement | HTMLImageElem
   return canvas;
 }
 
+function prepareColorImageForTextRecognition(image: HTMLCanvasElement | HTMLImageElement): HTMLCanvasElement {
+  const sourceWidth = image instanceof HTMLCanvasElement ? image.width : image.naturalWidth;
+  const sourceHeight = image instanceof HTMLCanvasElement ? image.height : image.naturalHeight;
+  const longestSide = Math.max(sourceWidth, sourceHeight, 1);
+  const scale = Math.min(2.4, 2800 / longestSide);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+  canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("Could not prepare the colour photo for text recognition.");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  // Preserve coloured logos and text: some medicine brands lose character
+  // boundaries when the only OCR input is grayscale.
+  context.filter = "contrast(1.12) brightness(1.03) saturate(1.08)";
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  context.filter = "none";
+  return canvas;
+}
+
 function createLabelOcrRegion(image: HTMLCanvasElement, index: number): HTMLCanvasElement {
   const width = image.width;
   const height = image.height;
@@ -371,53 +393,56 @@ export function MobileCameraOCR({
       }
 
       const preparedImage = prepareImageForTextRecognition(image);
+      const paddleRecognized: string[] = [];
 
-      // PaddleOCR is the primary, genuinely different OCR engine for medicine
-      // labels. It detects and recognizes text lines in-browser via ONNX Runtime.
-      // A second focused pass gives the main brand/logo another opportunity.
+      // Run independent OCR engines and retain their distinct readings instead
+      // of trusting the first engine that returns any text. Color helps stylized
+      // logos; grayscale/contrast helps small ingredients and strength text.
       if (mode === "product") {
+        let colourImage: HTMLCanvasElement | null = null;
+        let focused: HTMLCanvasElement | null = null;
         try {
-          setProgress(8);
+          setProgress(6);
           const paddle = await loadPaddleOCR();
-          setProgress(28);
-          const wholeResult = await paddle.detect(canvasToPaddleImage(preparedImage));
-          const wholeText = extractPaddleOcrText(wholeResult);
-          let focusedText = "";
-          let focused: HTMLCanvasElement | null = null;
-          try {
-            setProgress(52);
-            focused = createLabelFocusRegion(preparedImage);
-            const focusResult = await paddle.detect(canvasToPaddleImage(focused));
-            focusedText = extractPaddleOcrText(focusResult);
-          } finally {
-            if (focused) {
-              focused.width = 0;
-              focused.height = 0;
-            }
-          }
+          colourImage = prepareColorImageForTextRecognition(image);
 
-          const paddleText = mergeRecognizedText(wholeText, focusedText);
-          if (paddleText.length >= 6 && /\p{L}{3,}/u.test(paddleText)) {
-            setProgress(100);
-            onExtractedRef.current(paddleText);
-            setOpen(false);
-            return;
-          }
+          setProgress(16);
+          const colourResult = await paddle.detect(canvasToPaddleImage(colourImage));
+          paddleRecognized.push(extractPaddleOcrText(colourResult));
+
+          setProgress(27);
+          const enhancedResult = await paddle.detect(canvasToPaddleImage(preparedImage));
+          paddleRecognized.push(extractPaddleOcrText(enhancedResult));
+
+          setProgress(38);
+          focused = createLabelFocusRegion(colourImage);
+          const focusedResult = await paddle.detect(canvasToPaddleImage(focused));
+          paddleRecognized.push(extractPaddleOcrText(focusedResult));
         } catch {
-          // The local Tesseract engine below is the safety net if model loading,
-          // browser WASM support, or PaddleOCR inference fails.
+          // Tesseract below still runs if PaddleOCR/model loading fails.
+        } finally {
+          if (focused) {
+            focused.width = 0;
+            focused.height = 0;
+          }
+          if (colourImage) {
+            colourImage.width = 0;
+            colourImage.height = 0;
+          }
         }
       }
 
       const api = await loadTesseract();
       const currentPass = { current: 0 };
-      const worker = await api.createWorker("eng", 1, {
+      // Bengali-script medicine text now has a recognition path too. PaddleOCR
+      // supplies another independent reading for Latin-script brand/generic text.
+      const worker = await api.createWorker(mode === "product" ? "eng+ben" : "eng", 1, {
         logger: (message) => {
           if (message.status === "recognizing text" && typeof message.progress === "number") {
             // The whole-image passes take about 60% of the work; product-label
             // close-ups use the remaining progress. Invoice mode only runs two.
-            const base = mode === "product" ? currentPass.current * 15 : currentPass.current * 50;
-            const span = mode === "product" ? 15 : 50;
+            const base = mode === "product" ? 42 + currentPass.current * 7 : currentPass.current * 50;
+            const span = mode === "product" ? 7 : 50;
             setProgress(Math.min(99, Math.round(base + message.progress * span)));
           }
         },
@@ -503,7 +528,7 @@ export function MobileCameraOCR({
         await worker.terminate().catch(() => undefined);
       }
 
-      const extracted = recognized.reduce(
+      const extracted = [...paddleRecognized, ...recognized].reduce(
         (combined, textPart) => mergeRecognizedText(combined, textPart),
         "",
       );
@@ -599,7 +624,7 @@ export function MobileCameraOCR({
             <DialogDescription>
               {mode === "invoice"
                 ? text("Fit the full invoice page inside the camera view. Capture it to read the printed text. The result will be a draft for you to review, not a saved purchase.", "পুরো ইনভয়েসটি ক্যামেরার ফ্রেমে রাখুন। ছবি তুলে লেখা পড়ুন। ফলাফল শুধু যাচাই করার খসড়া হবে—কোনো ক্রয় স্বয়ংক্রিয়ভাবে সংরক্ষণ হবে না।")
-                : text("PaddleOCR reads the label on this device first, with on-device Tesseract as a fallback. The photo is not sent to a cloud OCR service. Keep the name, strength and composition sharp, and review all suggestions.", "প্যাকেট এমনভাবে ধরুন যেন নাম, ব্র্যান্ড, শক্তি ও উপাদানের লেখা পরিষ্কার দেখা যায়। পড়া তথ্যগুলো যাচাই করার জন্য প্রস্তাব হিসেবে দেখানো হবে।")}
+                : text("PaddleOCR reads colour and enhanced versions of the label, then Tesseract checks it with English and Bangla recognition. Results from all passes are combined for review. The photo stays on this device and is not sent to a cloud OCR service. Tiny, blurry or stylized text can still be misread.", "প্যাকেট এমনভাবে ধরুন যেন নাম, ব্র্যান্ড, শক্তি ও উপাদানের লেখা পরিষ্কার দেখা যায়। পড়া তথ্যগুলো যাচাই করার জন্য প্রস্তাব হিসেবে দেখানো হবে।")}
             </DialogDescription>
           </DialogHeader>
           <DialogBody className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-5">
