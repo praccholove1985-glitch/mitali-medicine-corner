@@ -179,7 +179,7 @@ function createLabelOcrRegions(image: HTMLCanvasElement): HTMLCanvasElement[] {
     const context = crop.getContext("2d", { willReadFrequently: true });
     if (!context) throw new Error("Could not prepare a close-up of the package text.");
     context.drawImage(image, x, y, regionWidth, regionHeight, 0, 0, regionWidth, regionHeight);
-    return prepareImageForTextRecognition(crop);
+    return crop;
   });
 }
 
@@ -319,6 +319,7 @@ export function MobileCameraOCR({
       const sourceImage = image as HTMLCanvasElement;
       const preparedImage = prepareImageForTextRecognition(image);
       const labelRegions = mode === "product" ? createLabelOcrRegions(sourceImage) : [];
+      const currentPass = { current: 0 };
       const worker = await api.createWorker("eng", 1, {
         logger: (message) => {
           if (message.status === "recognizing text" && typeof message.progress === "number") {
@@ -332,7 +333,6 @@ export function MobileCameraOCR({
       });
 
       const recognized: string[] = [];
-      const currentPass = { current: 0 };
       let passError: unknown = null;
 
       try {
@@ -371,7 +371,8 @@ export function MobileCameraOCR({
           for (let index = 0; index < labelRegions.length; index += 1) {
             try {
               currentPass.current = index + 2;
-              const result = await worker.recognize(labelRegions[index]);
+              const preparedRegion = prepareImageForTextRecognition(labelRegions[index]);
+              const result = await worker.recognize(preparedRegion);
               recognized.push(result.data.text);
             } catch (cause) {
               passError = passError ?? cause;
