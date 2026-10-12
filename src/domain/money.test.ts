@@ -3,30 +3,30 @@ import { amountToUnits, formatMoney, formatPaisa, isValidAmount, parsePaisa } fr
 
 describe("formatMoney", () => {
   it("groups digits the Bangladeshi way", () => {
-    expect(formatMoney("1234567.5")).toBe("৳12,34,567.50");
-    expect(formatMoney("999")).toBe("৳999.00");
-    expect(formatMoney("1000")).toBe("৳1,000.00");
-    expect(formatMoney("100000")).toBe("৳1,00,000.00");
+    expect(formatMoney("1234567.5")).toBe("BDT 12,34,567.50");
+    expect(formatMoney("999")).toBe("BDT 999.00");
+    expect(formatMoney("1000")).toBe("BDT 1,000.00");
+    expect(formatMoney("100000")).toBe("BDT 1,00,000.00");
   });
 
   it("rounds half up without floating point", () => {
-    expect(formatMoney("1.005")).toBe("৳1.01");
-    expect(formatMoney("1.0049")).toBe("৳1.00");
-    expect(formatMoney("0.995")).toBe("৳1.00");
-    expect(formatMoney("999.999")).toBe("৳1,000.00");
+    expect(formatMoney("1.005")).toBe("BDT 1.01");
+    expect(formatMoney("1.0049")).toBe("BDT 1.00");
+    expect(formatMoney("0.995")).toBe("BDT 1.00");
+    expect(formatMoney("999.999")).toBe("BDT 1,000.00");
   });
 
   it("keeps precision beyond what a double can hold", () => {
-    expect(formatMoney("90071992547409.93")).toBe("৳9,00,71,99,25,47,409.93");
+    expect(formatMoney("90071992547409.93")).toBe("BDT 9,00,71,99,25,47,409.93");
   });
 
   it("supports per-unit prices with more digits", () => {
-    expect(formatMoney("1.125", { fractionDigits: 4 })).toBe("৳1.1250");
+    expect(formatMoney("1.125", { fractionDigits: 4 })).toBe("BDT 1.1250");
   });
 
   it("handles negatives and does not print negative zero", () => {
-    expect(formatMoney("-250")).toBe("-৳250.00");
-    expect(formatMoney("-0.001")).toBe("৳0.00");
+    expect(formatMoney("-250")).toBe("-BDT 250.00");
+    expect(formatMoney("-0.001")).toBe("BDT 0.00");
   });
 
   it("can omit the symbol", () => {
