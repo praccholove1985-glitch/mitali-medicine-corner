@@ -8,10 +8,11 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prebuild": "node scripts/fetch-ocr-models.mjs"
   },
   "dependencies": {
-    "@paddleocr/paddleocr-js": "0.4.2",
+    "@gutenye/ocr-browser": "1.4.9",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
     "class-variance-authority": "^0.7.1",

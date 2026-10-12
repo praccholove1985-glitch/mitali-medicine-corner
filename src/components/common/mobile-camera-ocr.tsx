@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { Locale } from "@/lib/i18n";
+import { extractPaddleOcrText } from "@/lib/paddle-ocr-text";
 
 type OCRResult = { data: { text: string; confidence?: number } };
 type OCRLoggerMessage = { status?: string; progress?: number };
@@ -46,27 +47,24 @@ type OCRWindow = Window & {
 
 let barcodeLibraryPromise: Promise<NonNullable<OCRWindow["ZXingBrowser"]>> | null = null;
 
-type PaddleLine = { text?: unknown; score?: unknown };
-type PaddleResult = { items?: PaddleLine[] };
 type PaddleEngine = {
-  predict(image: HTMLCanvasElement): Promise<PaddleResult[]>;
+  detect(image: { data: Uint8ClampedArray; width: number; height: number }): Promise<unknown>;
 };
 
 let paddleOcrPromise: Promise<PaddleEngine> | null = null;
 
-/** Load and cache PaddleOCR.js (PP-OCRv5) in the browser. No OCR API key is needed. */
+/**
+ * Guten OCR is a PaddleOCR/ONNX browser build that works with the Next.js
+ * application bundle. Models are served from this app's own /models path.
+ */
 async function loadPaddleOCR(): Promise<PaddleEngine> {
   if (!paddleOcrPromise) {
-    paddleOcrPromise = import("@paddleocr/paddleocr-js")
-      .then(({ PaddleOCR }) => PaddleOCR.create({
-        lang: "en",
-        ocrVersion: "PP-OCRv5",
-        worker: true,
-        ortOptions: {
-          backend: "wasm",
-          wasmPaths: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/",
-          numThreads: 1,
-          simd: true,
+    paddleOcrPromise = import("@gutenye/ocr-browser")
+      .then(({ default: Ocr }) => Ocr.create({
+        models: {
+          detectionPath: "/models/ch_PP-OCRv4_det_infer.onnx",
+          recognitionPath: "/models/ch_PP-OCRv4_rec_infer.onnx",
+          dictionaryPath: "/models/ppocr_keys_v1.txt",
         },
       }) as unknown as Promise<PaddleEngine>)
       .catch((error: unknown) => {
@@ -77,12 +75,11 @@ async function loadPaddleOCR(): Promise<PaddleEngine> {
   return paddleOcrPromise;
 }
 
-function textFromPaddleResult(result: PaddleResult | undefined): string {
-  if (!result || !Array.isArray(result.items)) return "";
-  return result.items
-    .map((item) => typeof item.text === "string" ? item.text.replace(/\s+/g, " ").trim() : "")
-    .filter(Boolean)
-    .join("\n");
+function canvasToPaddleImage(image: HTMLCanvasElement): { data: Uint8ClampedArray; width: number; height: number } {
+  const context = image.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("Could not prepare image pixels for OCR.");
+  const data = context.getImageData(0, 0, image.width, image.height);
+  return { data: data.data, width: data.width, height: data.height };
 }
 
 async function readBarcodeFromImage(canvas: HTMLCanvasElement): Promise<string | null> {
@@ -383,15 +380,15 @@ export function MobileCameraOCR({
           setProgress(8);
           const paddle = await loadPaddleOCR();
           setProgress(28);
-          const wholeResults = await paddle.predict(preparedImage);
-          const wholeText = wholeResults.map(textFromPaddleResult).filter(Boolean).join("\n");
+          const wholeResult = await paddle.detect(canvasToPaddleImage(preparedImage));
+          const wholeText = extractPaddleOcrText(wholeResult);
           let focusedText = "";
           let focused: HTMLCanvasElement | null = null;
           try {
             setProgress(52);
             focused = createLabelFocusRegion(preparedImage);
-            const focusResults = await paddle.predict(focused);
-            focusedText = focusResults.map(textFromPaddleResult).filter(Boolean).join("\n");
+            const focusResult = await paddle.detect(canvasToPaddleImage(focused));
+            focusedText = extractPaddleOcrText(focusResult);
           } finally {
             if (focused) {
               focused.width = 0;

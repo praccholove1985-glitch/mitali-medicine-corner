@@ -1,12 +1,12 @@
-/** Extract recognized text lines from PaddleOCR.js results without assuming a particular SDK object shape. */
-export function textFromPaddleResult(result: unknown): string {
+/** Extract text lines from Guten OCR/PaddleOCR output without assuming all metadata exists. */
+export function extractPaddleOcrText(result: unknown): string {
   if (!result || typeof result !== "object") return "";
-  const items = (result as { items?: unknown }).items;
-  if (!Array.isArray(items)) return "";
-  return items
-    .map((item: unknown) => {
-      if (!item || typeof item !== "object") return "";
-      const text = (item as { text?: unknown }).text;
+  const lines = (result as { texts?: unknown }).texts;
+  if (!Array.isArray(lines)) return "";
+  return lines
+    .map((line: unknown) => {
+      if (!line || typeof line !== "object") return "";
+      const text = (line as { text?: unknown }).text;
       return typeof text === "string" ? text.replace(/\s+/g, " ").trim() : "";
     })
     .filter(Boolean)

@@ -1,7 +1,7 @@
-# PaddleOCR.js setup
+# In-browser Paddle OCR setup
 
-The medicine-label scanner uses the official PaddleOCR.js SDK with PP-OCRv5 inside the browser. It needs no cloud OCR API key. OCR models and ONNX Runtime Web assets download from their configured CDNs on first use; the captured medicine image itself remains in the browser. If PaddleOCR model loading or recognition fails, the existing local Tesseract OCR is used.
+The medicine scanner uses Guten OCR, a browser-ready ONNX implementation based on PaddleOCR. It does not require a cloud OCR key and does not upload the captured medicine image to an OCR API. At build time, `scripts/fetch-ocr-models.mjs` downloads and verifies the three model assets into `public/models`; the app serves them from its own origin.
 
-The initial engine is configured for English, matching the main brand and generic text on most medicine packaging. Bangla-script text may not be recognized reliably by this model. OCR output remains a draft for review; it does not automatically add a medicine to the sale.
+The browser OCR uses the PP-OCRv4 model with an English/Chinese character dictionary that includes Latin medicine names. It is aimed at product names, ingredient names, strengths and company marks printed in English. Bangla-script recognition is not guaranteed by this model. If Paddle OCR fails to load or read usable text, the current on-device Tesseract reader remains the fallback.
 
-The browser needs internet access to download PaddleOCR/ONNX model assets on first scan. The OCR result is processed locally after those assets are loaded.
+The OCR result is only a review draft. The user must confirm the product before selecting a catalogue item or adding it to a sale.
