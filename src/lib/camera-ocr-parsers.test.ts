@@ -84,3 +84,26 @@ describe("common Bangladeshi medicine label layouts", () => {
     expect(suggestProductLabelDetails(["SkinCare", "Clotrimazole 1%", "Cream", "ACI"].join("\n")).dosageForm).toBe("Cream");
   });
 });
+
+
+describe("low-confidence brand OCR and standalone manufacturer marks", () => {
+  it("does not promote a short mixed-case OCR fragment to the brand name", () => {
+    const raw = ["oT TL", "Azithromycin 500 mg", "Tablet", "A SQUARE"].join("\n");
+    const details = suggestProductLabelDetails(raw);
+
+    expect(details.brandName).toBe("");
+    expect(details.name).toBe("");
+    expect(details.genericName).toBe("Azithromycin");
+    expect(details.strength).toBe("500 mg");
+    expect(details.dosageForm).toBe("Tablet");
+    expect(details.companyName).toBe("SQUARE");
+  });
+
+  it("normalizes a one-letter OCR artifact before a known manufacturer mark", () => {
+    const details = suggestProductLabelDetails(["ZIMAX 500", "Azithromycin 500 mg", "A SQUARE"].join("\n"));
+
+    expect(details.brandName).toBe("ZIMAX");
+    expect(details.name).toBe("ZIMAX 500");
+    expect(details.companyName).toBe("SQUARE");
+  });
+});

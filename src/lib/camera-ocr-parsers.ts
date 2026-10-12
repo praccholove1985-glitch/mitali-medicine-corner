@@ -17,6 +17,19 @@ function isLikelyCompanyLine(line: string): boolean {
   return COMPANY_NOISE.test(line) || KNOWN_PHARMA_COMPANY.test(line);
 }
 
+function hasShortMixedCaseOcrNoise(value: string): boolean {
+  // Tesseract sometimes renders a stylized logo as fragments such as "oT TL".
+  // Do not let short lowercase-then-uppercase fragments become a medicine brand.
+  return value.split(/\s+/).some((word) => word.length <= 4 && /^[a-z]{1,2}[A-Z]{1,2}$/.test(word));
+}
+
+function normalizeCompanyName(value: string): string {
+  let normalized = value.trim().replace(/^[A-Z]\s+(?=(?:SQUARE|INCEPTA|BEXIMCO|RENATA|OPSONIN|ESKAYEF|ACI|ACME)\b)/i, "");
+  const known = normalized.match(KNOWN_PHARMA_COMPANY)?.[0];
+  if (known && !COMPANY_NOISE.test(normalized)) normalized = known.toLocaleUpperCase();
+  return normalized;
+}
+
 function hasIngredientText(line: string): boolean {
   const remaining = line
     .replace(UNIT_STRENGTH, " ")
@@ -75,6 +88,7 @@ function isLikelyProductLine(line: string): boolean {
   const value = line.trim();
   if (value.length < 3 || value.length > 100) return false;
   if (!/\p{L}{2}/u.test(value)) return false;
+  if (hasShortMixedCaseOcrNoise(value)) return false;
   if (PRODUCT_NOISE.test(value) || INSTRUCTION_NOISE.test(value) || isLikelyCompanyLine(value)) return false;
   if (/^(?:batch|lot|exp|expiry|mfg|mrp|price|barcode|generic|composition|manufacturer|manufactured|marketed|ingredients?|contains|each)\b/i.test(value)) return false;
   if (/^\d+(?:\.\d+)?\s*(?:mg|mcg|µg|g|gm|kg|ml|iu|%)\s*(?:\/\s*\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml))?$/i.test(value)) return false;
@@ -125,7 +139,7 @@ function rankProductNameCandidates(
       score += wordCount >= 1 && wordCount <= 3 ? 3 : wordCount <= 5 ? 1 : -3;
       if (uppercaseRatio >= 0.65) score += 1;
       if (line.length > 48) score -= 3;
-      if (UNIT_STRENGTH.test(line)) score -= 3;
+      if (UNIT_STRENGTH.test(line)) score -= 5;
       if (/\b(?:batch|expiry|expiration|mrp|price|barcode|manufactured|marketed|pharmaceuticals?|laborator(?:y|ies)|limited|ltd\.?)\b/i.test(line)) score -= 5;
       if (strengthKey && lower.replace(/\s+/g, "").includes(strengthKey)) score += 1;
       return { line, score };
@@ -175,9 +189,10 @@ export function suggestProductLabelDetails(raw: string): ProductLabelSuggestions
   const full = lines.join("\n");
 
   const companyFromLabel = valueAfterLabel(lines, /(?:manufactured\s*(?:&|and)\s*marketed\s*by|manufactured\s*by|marketed\s*by|mfg\.?\s*by|manufacturer)\b\s*:?\s*/i);
-  const companyName = companyFromLabel || firstCapture(full, [
+  const companyRaw = companyFromLabel || firstCapture(full, [
     /(?:manufactured\s*(?:&|and)\s*marketed\s*by|manufactured\s*by|marketed\s*by|mfg\.?\s*by|manufacturer\s*:?)\s*([^:\n]+(?:limited|ltd\.?|pharmaceuticals?|laborator(?:y|ies)|healthcare)[^\n]*)/i,
   ]) || lines.find((line) => isLikelyCompanyLine(line)) || "";
+  const companyName = normalizeCompanyName(companyRaw);
 
   const compositionLabels = /(?:generic\s*name|active\s*ingredient|composition|each\s+(?:tablet|capsule|sachet|5\s*ml|ml)[^\n]*?contains)\b\s*:?\s*/i;
   let genericSource = valueAfterLabel(lines, compositionLabels);

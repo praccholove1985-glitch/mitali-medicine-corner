@@ -183,6 +183,25 @@ function createLabelOcrRegion(image: HTMLCanvasElement, index: number): HTMLCanv
   return crop;
 }
 
+function createLabelFocusRegion(image: HTMLCanvasElement): HTMLCanvasElement {
+  const width = image.width;
+  const height = image.height;
+  // Most packages put the product mark in the main label area. A focused,
+  // centered crop at block-text segmentation gives logos and large brand names
+  // another chance without relying only on whole-image sparse-text OCR.
+  const regionWidth = Math.max(1, Math.round(width * 0.88));
+  const regionHeight = Math.max(1, Math.round(height * 0.62));
+  const x = Math.max(0, Math.round((width - regionWidth) / 2));
+  const y = Math.max(0, Math.round((height - regionHeight) / 2));
+  const crop = document.createElement("canvas");
+  crop.width = regionWidth;
+  crop.height = regionHeight;
+  const context = crop.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("Could not prepare a focused view of the medicine label.");
+  context.drawImage(image, x, y, regionWidth, regionHeight, 0, 0, regionWidth, regionHeight);
+  return crop;
+}
+
 function mergeRecognizedText(primary: string, supplemental: string): string {
   const lines: string[] = [];
   const keys: string[] = [];
@@ -361,6 +380,28 @@ export function MobileCameraOCR({
         }
 
         if (mode === "product") {
+          let focusRegion: HTMLCanvasElement | null = null;
+          try {
+            currentPass.current = 2;
+            await worker.setParameters({
+              // PSM 6 assumes a text block instead of isolated words. This can
+              // recover a stylized product name missed by sparse-text mode.
+              tessedit_pageseg_mode: "6",
+              preserve_interword_spaces: "1",
+              user_defined_dpi: "300",
+            });
+            focusRegion = createLabelFocusRegion(preparedImage);
+            const result = await worker.recognize(focusRegion);
+            recognized.push(result.data.text);
+          } catch (cause) {
+            passError = passError ?? cause;
+          } finally {
+            if (focusRegion) {
+              focusRegion.width = 0;
+              focusRegion.height = 0;
+            }
+          }
+
           await worker.setParameters({
             tessedit_pageseg_mode: "11",
             preserve_interword_spaces: "1",
@@ -369,7 +410,7 @@ export function MobileCameraOCR({
           for (let index = 0; index < 4; index += 1) {
             let region: HTMLCanvasElement | null = null;
             try {
-              currentPass.current = index + 2;
+              currentPass.current = index + 3;
               region = createLabelOcrRegion(preparedImage, index);
               const result = await worker.recognize(region);
               recognized.push(result.data.text);
